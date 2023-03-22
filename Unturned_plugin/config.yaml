@@ -1,0 +1,271 @@
+# Configuration for SpecialtyOverhaul plugin
+
+# For reference, the calculation for exp needed to level up
+#   res = base * powf(mult * i, multmult) + base
+#
+#   Note:
+#     i is current level
+#
+#
+# Variable for multmult can be more than 1 to create grindy leveling up (increases exponentially)
+# Or multmult can be between 0 - 1 so the need of exp to level up, decreases
+
+# When a skill is updated, it will always be rounded if the number have fraction
+skillset_config:
+  # Used on civilian role, also used when other skillsets don't have the parameters supplied in the default
+  default:
+    # This value is used with mult_level_exp to determine the value when to level up
+    # type: int
+    base_level_exp:
+      offense.overkill: 100
+      offense.sharpshooter: 100
+      offense.dexterity: 50
+      offense.cardio: 200
+      offense.exercise: 200
+      offense.diving: 100
+      offense.parkour: 200
+      defense.sneakybeaky: 70
+      defense.vitality: 70
+      defense.immunity: 100
+      defense.toughness: 100
+      defense.strength: 50
+      defense.warmblooded: 30
+      defense.survival: 10
+      support.healing: 15
+      support.crafting: 30
+      support.outdoors: 15
+      support.cooking: 20
+      support.fishing: 15
+      support.agriculture: 15
+      support.mechanic: 70
+      support.engineer: 5
+
+    # This value is used to multiply base_level_exp
+    # type: float
+    mult_level_exp:
+      offense.overkill: 1.0
+      offense.sharpshooter: 1.2
+      offense.dexterity: 1.1
+      offense.cardio: 1.0
+      offense.exercise: 1.0
+      offense.diving: 1.1
+      offense.parkour: 1.2
+      defense.sneakybeaky: 1.2
+      defense.vitality: 1.0
+      defense.immunity: 1.0
+      defense.toughness: 1.2
+      defense.strength: 1.0
+      defense.warmblooded: 1.0
+      defense.survival: 1.0
+      support.healing: 1.2
+      support.crafting: 1.0
+      support.outdoors: 1.2
+      support.cooking: 1.2
+      support.fishing: 1.1
+      support.agriculture: 1.2
+      support.mechanic: 1.2
+      support.engineer: 1.5
+
+
+    # This value is used to multiply mult_level_exp
+    # This value can determine if the leveling goes up linearly, exponentially, or even opposite of exponentially
+    # Default for all option is 1.0
+    # type: float
+    multmult_level_exp:
+    # offense.overkill: 1.0
+
+
+    # This value is used to determine the exp loss if the player dies
+    # The .value can be 0 to prevent exp loss
+    #
+    # A .type value can be filled with a string of "offset", "mult", or "base"
+    #   - "offset"
+    #     The value is how many exp to decrement from Player's Specialty exp value
+    #   - "mult"
+    #     The value is a multiplier to get the end value
+    #   - "base"
+    #     The value is a multiplier, to multiply base_level_exp using the same calculation to determine next level value in order to get decrement value
+    #     Or in simple terms, decrement the Player level (not exp)
+    # .value type: float
+    # .type type: string
+    ondied_edit_level_exp:
+      offense.overkill.value: 1.5
+      offense.overkill.type: "base"
+      offense.sharpshooter.value: 2.0
+      offense.sharpshooter.type: "base"
+      offense.dexterity.value: 1.5
+      offense.dexterity.type: "base"
+      offense.cardio.value: 2.0
+      offense.cardio.type: "base"
+      offense.exercise.value: 1.5
+      offense.exercise.type: "base"
+      offense.diving.value: 2.0
+      offense.diving.type: "base"
+      offense.parkour.value: 2.0
+      offense.parkour.type: "base"
+      defense.sneakybeaky.value: 2.0
+      defense.sneakybeaky.type: "base"
+      defense.vitality.value: 1.5
+      defense.vitality.type: "base"
+      defense.immunity.value: 1.5
+      defense.immunity.type: "base"
+      defense.toughness.value: 2.0
+      defense.toughness.type: "base"
+      defense.strength.value: 1.5
+      defense.strength.type: "base"
+      defense.warmblooded.value: 1.5
+      defense.warmblooded.type: "base"
+      defense.survival.value: 1.5
+      defense.survival.type: "base"
+      support.healing.value: 2.0
+      support.healing.type: "base"
+      support.crafting.value: 2.0
+      support.crafting.type: "base"
+      support.outdoors.value: 2.0
+      support.outdoors.type: "base"
+      support.cooking.value: 2.0
+      support.cooking.type: "base"
+      support.fishing.value: 2.0
+      support.fishing.type: "base"
+      support.agriculture.value: 2.0
+      support.agriculture.type: "base"
+      support.mechanic.value: 2.0
+      support.mechanic.type: "base"
+      support.engineer.value: 1.0
+      support.engineer.type: "base"
+
+  fire_fighter:
+    max_level:
+      offense.cardio: 7
+      defense.strength: 7
+
+    mult_level_exp:
+      offense.cardio: 0.9
+      defense.strength: 0.9
+
+    ondied_edit_level_exp:
+      offense.cardio.value: 0.7
+      offense.cardio.type: "base"
+      defense.strength.value: 0.7
+      defense.strength.type: "base"
+      
+
+
+  # For admin skillset parameters (using "All Skillsets")
+  admin:
+
+
+# Parameters to certain events that happened to player
+# Notes:
+#   Post-fix with -_damage_based:
+#     If 1 (true), values of exp summed will be the damage dealt.
+#   And some values will be multiplier
+#     If 0 (false), values of exp summed will be constant, based
+#   on the event
+#
+# WARNING:
+#     For multiplier values, think twice when setting the value
+#   below 1. As the final results will be rounded
+#     Except for values that using ticks to sum
+#
+# type: float
+eventskill_updatesumexp:
+  # Note: exp by shooting a gun, don't have damage based exp
+  sharpshooter_shoot_dist_div: 70
+  sharpshooter_shoot_dist_start: 50
+  sharpshooter_shoot_player_crit: 15
+  sharpshooter_shoot_player: 3
+  sharpshooter_shoot_zombie_crit: 5
+  sharpshooter_shoot_zombie: 2
+  sharpshooter_shoot_animal: 2
+  sharpshooter_shoot_tire: 7
+  sharpshooter_player_killed_gun: 20
+  sharpshooter_animal_killed_gun: 5
+  sharpshooter_zombie_killed_gun: 5
+
+  # Note: any values, except -_killed- values, are multiplier
+  overkill_melee_damage_based: 0
+  overkill_melee_player_crit: 15
+  overkill_melee_player: 3
+  overkill_melee_zombie_crit: 5
+  overkill_melee_zombie: 2
+  overkill_melee_animal: 2
+  overkill_player_killed_melee: 20
+  overkill_animal_killed_melee: 5
+  overkill_zombie_killed_melee: 5
+
+  # If true, then reloading while previous mag isn't empty still counts
+  dexterity_reload_allow_notempty_mags: 0
+  dexterity_reload_per_ammo: 0.7
+  dexterity_crafting: 3
+  # The repairing value is a multiplier to amount of health repaired
+  dexterity_repairing_vehicle: 3.5
+
+  # These values are multiplier
+  cardio_stamina_regen: 1
+  cardio_oxygen_regen: 1
+
+  exercise_stamina_use: 1.2
+
+  diving_oxygen_use: 1.2
+  diving_oxygen_use_ifswimming: 1.7
+
+  parkour_stamina_use_sprinting: 0.5
+  
+  sneakybeaky_zombie_max_dist: 10
+  sneakybeaky_zombie_dist_div: 1
+  sneakybeaky_animal_max_dist: 10
+  sneakybeaky_animal_dist_div: 2
+
+  vitality_maintain_hunger_above: 70
+  vitality_maintain_thirst_above: 70
+  vitality_increase_persec_mult: 0.01
+
+  immunity_virus_increase_mult: 0.1
+  immunity_virus_decrease_mult: 0.1
+  immunity_mainatain_virus_below: 30
+  immunity_increase_persec_mult: 0.1
+
+  toughness_health_decrease_mult: 0.20
+  toughness_bleeding: 10
+  toughness_fractured: 10
+
+  strength_health_decrease_mult : 0.2
+  strength_health_decrease_fall_damage_mult : 0.5
+  strength_bleeding: 10
+  strength_fractured: 10
+
+  warmblooded_on_cold_persec_mult: 0.01
+  warmblooded_on_freezing_persec_mult: 0.05
+
+  survival_maintain_hunger_below: 50
+  survival_maintain_thirst_below: 50
+  survival_increase_persec_mult: 0.01
+
+  healing_health_mult: 0.1
+  healing_on_aiding: 15
+  healing_crafting: 1
+
+  crafting_on_craft: 1
+
+  outdoors_animal_killed: 10
+  outdoors_resource_damage_based: 0
+  outdoors_resource_damaging: 1
+
+  cooking_on_cook: 1
+
+  # for now, it will use outdoors skills
+  fishing_on_outdoors_skill_mult: 0.8
+
+  agriculture_onfarm: 13
+  agriculture_crafting: 1
+
+  mechanic_repair_health: 1.2
+
+  engineer_repair_health: 0.7
+  engineer_crafting: 1
+
+
+
+# in seconds
+tick_interval: 1

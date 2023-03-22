@@ -1,0 +1,154 @@
+Specialty notes
+	overkill:
+		A skill that increases melee damage
+
+			Leveling up by damaging an entity (player, zombie, animal)
+		by using a melee
+
+
+	sharpshooter:
+		A skill that increases weapon stability
+
+			Same as overkill, but increased by using a ranged weapon. Also can level up by
+		popping a tire.
+
+
+	dexterity:
+		A skill that increases reloading/hammering speed
+
+			You can increase it by crafting. You can also increase it by reloading a gun (only if the mag swapped
+		is the empty ones)
+
+
+	cardio:
+		A skill that increases stamina and oxygen regeneration speed
+		
+			Can be increased by regenerating stamina, or regenerating oxygen
+
+
+	exercise:
+		A skill that increase movement speed and reduce stamina use
+
+			Increased only by using stamina
+
+
+	diving:
+		A skill that reduce oxygen use and increase swimming speed, also reduce scope sway
+
+			Increased by reducing oxygen, a plus when swimming
+
+
+	parkour:
+		A skill that increases jump height, and also reduce stamina use
+
+			Increased by jumping
+	
+
+
+defense:
+	sneakybeaky:
+		A skill that increases stealth
+			
+			Increased by alerting a zombie or animal, while trying to go as close as possible. Or by
+		crouching or proning while moving
+
+
+	vitality:
+		A skill that increases health regeneration speed 
+
+			Increased by reduced food and thirst while maintaining those values above a certain value
+		(only increased if food and thirst are above certain value at the same time)
+
+
+	immunity:
+		A skill that increases immunity
+		
+			Increased by increasing immunity, or by maintaining the value below treshold
+
+
+	toughness:
+		A skill that lessen flinch and pain effects
+
+			Increased by losing health, plus if bleeding and/or fractured bone.
+
+
+	strength:
+		A skill that increases bleeding and fractured bone recovery speed. Also reduce fall damage.
+
+			Same as toughness. And can be increased by reducing health by fall damage
+
+
+	warmblooded:
+		A skill that increase freezing endurance
+
+			Increased by being in a cold place
+
+
+	survival:
+		A skill that use less food and water
+
+			Increased by maintaining food and water in a certain value
+
+
+
+support:
+	healing:
+		A skill that increase healing items efficiency
+
+			Increased by using medical items
+
+
+	crafting:
+		A skill for aceessing advanced blueprints
+
+			Increased by crating stuff (food stuffs not included)
+
+
+	outdoors:
+		For increasing wood chopping efficiency
+
+			Increased by damaging resources. Can be increased by killing animals
+
+
+	cooking:
+		A skill for getting more quality food recipes
+
+			Increased by preparing foods
+
+
+	fishing:
+		A skill for efficiently catching fish
+
+			Increased by fishing (still have no clue how to do this, no API's event for this)
+
+
+	agriculture:
+		A skill for efficiently harvest crops
+
+			Increased by harvesting and by crafting farming stuff
+			
+
+	mechanic:
+		A skill for efficiently repairing stuff
+		
+			Increased by repairing vehicles
+
+
+	engineer:
+		A skill for acquiring more advanced blueprints
+
+			Same as mechanic, but not with buildings. Also can be increased by crafting certain items
+
+
+Note to self:
+	Ticks used for the experience that updated when a value going above or below certain threshold.
+Since the experience uses integer, not floating point, the experience will be updated when the
+value isn't in the threshold area.
+
+	When watching if some items are used/planted/anything else, always check if the item is dropped
+first or taken by player, so it knows that the player doesn't taking or removing it. As for changing
+item placement or sorting it, the API basically uses removing then adding events. First suggestion to
+counter this is by checking the time from last event. If the last event is too fast (as if the
+program does it) then it will not count as taking an item. Lastly, to counter false checking because
+of admin giving an item to a player, the least thing to try is checking if the item is in batch or
+not. There's no other way as of now.

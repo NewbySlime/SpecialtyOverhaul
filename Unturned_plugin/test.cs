@@ -11,21 +11,15 @@ using Steamworks;
 [Command("test")]
 [CommandDescription("just a test")]
 [CommandActor(typeof(UnturnedUser))]
-public class Test_command : UnturnedCommand
-{
+public class Test_command : UnturnedCommand {
   private readonly SpecialtyOverhaul plugin;
-  public Test_command(SpecialtyOverhaul plugin, IServiceProvider provider) : base(provider)
-  {
-    this.plugin = plugin;
-  }
+  public Test_command(SpecialtyOverhaul plugin, IServiceProvider provider) : base(provider) { this.plugin = plugin; }
 
-  protected override async UniTask OnExecuteAsync()
-  {
+  protected override async UniTask OnExecuteAsync() {
     await PrintAsync(string.Format("{0}, {1}", Context.Actor.DisplayName, Context.Actor.Id));
 
     UnturnedUser? user = plugin.UnturnedUserProviderInstance.GetUser(new CSteamID(ulong.Parse(Context.Actor.Id)));
-    if(user != null)
-    {
+    if (user != null) {
       await user.PrintMessageAsync("test");
     }
   }

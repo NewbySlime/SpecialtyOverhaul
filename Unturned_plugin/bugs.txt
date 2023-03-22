@@ -1,0 +1,12 @@
+
+-----BUG-----
+No mag exploits
+	Player can exploit it by dropping the mag in the attachment menu, then
+reloading the gun
+
+Setting player level to zero or max not actually to that level
+
+
+-----ERRORS-----
+Error on player disconnect (io violation when saving player data)
+Error when punching with bare hands

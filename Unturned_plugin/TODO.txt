@@ -1,0 +1,16 @@
+
+-----IDEAS-----
+Create Mod for changing the UI
+
+
+-----FEATURES-----
+Add Starting Level
+Backstabing zombie, if possible, for sneakybeaky
+Using max level for each skillset
+
+Players can change skillsets (when player first time playing)
+
+Leveling fishing skill by actually fishing, not using outdoors exp
+Maybe, our own events by using the mod?
+
+Autoreload config when the config is edited

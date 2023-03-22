@@ -6,15 +6,10 @@ using System.Threading.Tasks;
 using OpenMod.Core.Eventing;
 using OpenMod.Unturned.Users;
 
-namespace Nekos.SpecialtyPlugin.CustomEvent
-{
-  public class UnturnedUserRecheckEvent: Event
-  {
+namespace Nekos.SpecialtyPlugin.CustomEvent {
+  public class UnturnedUserRecheckEvent : Event {
     public UnturnedUser user;
 
-    public UnturnedUserRecheckEvent(UnturnedUser user)
-    {
-      this.user = user;
-    } 
+    public UnturnedUserRecheckEvent(UnturnedUser user) { this.user = user; }
   }
 }

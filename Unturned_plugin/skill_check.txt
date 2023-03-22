@@ -1,11 +1,11 @@
 offense specialty
 	0 overkill [v][v]
 	1 sharpshooter [v][v]
-	2 dexterity [v][ ]
+	2 dexterity [v][v]
 	3 cardio [v][v]
 	4 exercise [v][v]
 	5 diving [v][v]
-	6 parkour [v][ ]
+	6 parkour [v][v]
 
 defense specialty
 	0 sneakybeaky [v][v]
@@ -13,11 +13,11 @@ defense specialty
 	2 immunity [v][v]
 	3 toughness [v][v]
 	4 strength [v][v]
-	5 warmblooded [v][ ]
+	5 warmblooded [v][v]
 	6 survival [v][v]
 
 support specialty
-	0 healing [v][-]
+	0 healing [v][v]
 	1 crafting [v][v]
 	2 outdoors [v][v]
 	3 cooking [v][v]
@@ -27,5 +27,4 @@ support specialty
 	7 engineer [v][v]
 
 
-on player death [v][ ]
-error on player disconnect (io violation) [ ]
+on player death [v][v]

@@ -25,7 +25,13 @@ using System.Threading;
 
 [assembly:PluginMetadata("Nekos.SpecialtyPlugin", DisplayName = "Specialty Overhaul")]
 namespace Nekos.SpecialtyPlugin {
+  /// <summary>
+  /// The main plugin class
+  /// </summary>
   public class SpecialtyOverhaul : OpenModUnturnedPlugin {
+    /// <summary>
+    /// This mutex is used to make editing _tickCallbacks thread-safe
+    /// </summary>
     private static Mutex _tickMutex = new Mutex();
 
     private readonly IConfiguration m_Configuration;
@@ -43,6 +49,9 @@ namespace Nekos.SpecialtyPlugin {
 
     private readonly NonAutoloadWatcher nonAutoloadWatcher;
 
+    /// <summary>
+    /// A dictionary to store callbacks that tied to certain playerID and specialty and skill enum combined into ushort
+    /// </summary>
     private Dictionary<KeyValuePair<ulong, ushort>, KeyValuePair<OnTickInterval, object>> _tickCallbacks = new Dictionary<KeyValuePair<ulong, ushort>, KeyValuePair<OnTickInterval, object>>();
 
     private SkillUpdater skillUpdater;
@@ -70,23 +79,40 @@ namespace Nekos.SpecialtyPlugin {
       get { return _tickTimer; }
     }
 
+    /// <summary>
+    /// A class that contains player datas, used for calling events. It only has UnturnedPlayer atm, who knows in the future that this class might need more than one data
+    /// </summary>
     public class PlayerData : EventArgs {
       public UnturnedPlayer player;
-
-      public PlayerData(UnturnedPlayer player) { this.player = player; }
+      
+      /// <param name="player">Current UnturnedPlayer object</param>
+      public PlayerData(UnturnedPlayer player) {
+        this.player = player;
+      }
     }
 
+    
+    // events that this class needed
     public event EventHandler<PlayerData>? OnPlayerConnected;
     public event EventHandler<PlayerData>? OnPlayerDisconnected;
     public event EventHandler<PlayerData>? OnPlayerDied;
     public event EventHandler<PlayerData>? OnPlayerRevived;
     public event EventHandler<PlayerData>? OnPlayerRespawned;
 
+    
+    /// <summary>
+    /// Delegate for tick event
+    /// </summary>
+    /// <param name="obj">The object that subscribers use to determine which data that needs to be processed</param>
+    /// <param name="removeObj">For telling the event invoker that this data needs to be removed from _tickCallbacks</param>
     public delegate void OnTickInterval(object obj, ref bool removeObj);
 
+    /// <summary>
+    /// Callback event for TickTimer. The function call all callbacks contained in _tickCallbacks
+    /// </summary>
     private void _onTick(Object? obj, System.EventArgs eventArgs) {
       List<KeyValuePair<ulong, ushort>> _keyListToRemove = new List<KeyValuePair<ulong, ushort>>();
-
+      
       _tickMutex.WaitOne();
       foreach (var child in _tickCallbacks) {
         bool _removeobj = false;
@@ -102,12 +128,30 @@ namespace Nekos.SpecialtyPlugin {
       _tickMutex.ReleaseMutex();
     }
 
-    private ushort _toUshort(EPlayerSpeciality spec, byte idx) { return (ushort)(((byte)spec << 8) | idx); }
+    /// <summary>
+    /// Turning EPlayerSpecialty enum and certain skill index into ushort that can be used for _tickCallbacks keys
+    /// </summary>
+    /// <param name="spec">The Specialty</param>
+    /// <param name="idx">The Skill index</param>
+    /// <returns>Keys from combining EPlayerSpecialty enum and skill index</returns>
+    private ushort _toUshort(EPlayerSpeciality spec, byte idx) {
+      return (ushort)(((byte)spec << 8) | idx);
+    }
+
 
     public SpecialtyOverhaul(IConfiguration configuration, IStringLocalizer stringLocalizer, ILogger<SpecialtyOverhaul> logger, IServiceProvider serviceProvider) : base(serviceProvider) {
       m_Configuration = configuration;
       m_StringLocalizer = stringLocalizer;
       m_Logger = logger;
+
+
+      /**
+       * In order to get an openmod classes, what you need is to create other classes that contains an interface that you needed.
+       * And searching through the documentation to get what you needed, and there's no explanation on how to get those dependencies.
+       * 
+       * 
+       * This literally took me 2 days figuring out what goes where, so just I can use these functions and create UnturnedUserProvider.
+       */
 
       openModDataStoreAccessor = new OpenModDataStoreAccessor(Runtime);
       userDataStore = new UserDataStore(openModDataStoreAccessor, Runtime);
@@ -119,8 +163,9 @@ namespace Nekos.SpecialtyPlugin {
       openModStringLocalizer = new OpenModStringLocalizer(configurationBasedStringLocalizerFactory, Runtime);
 
       userProvider = new UnturnedUserProvider(EventBus, openModStringLocalizer, userDataSeeder, userDataStore, Runtime);
-      skillConfig = new SkillConfig(this, m_Configuration);
 
+
+      skillConfig = new SkillConfig(this, m_Configuration);
       skillUpdater = new SkillUpdater(this);
 
       nonAutoloadWatcher = new NonAutoloadWatcher();
@@ -128,6 +173,10 @@ namespace Nekos.SpecialtyPlugin {
       _tickTimer = new TickTimer(0);
     }
 
+
+    /// <summary>
+    /// Invoked when the plugin needs to be loaded/initialized
+    /// </summary>
     protected override async UniTask OnLoadAsync() {
       _instance = this;
 
@@ -150,6 +199,10 @@ namespace Nekos.SpecialtyPlugin {
       await UniTask.SwitchToThreadPool();
     }
 
+
+    /// <summary>
+    /// Invoked when the plugin unloading/"deconstruct" itself. Called when openmod restarted or the server shuts down
+    /// </summary>
     protected override async UniTask OnUnloadAsync() {
       _tickTimer.OnTick -= _onTick;
       _tickTimer.StopTick();
@@ -164,6 +217,15 @@ namespace Nekos.SpecialtyPlugin {
       await UniTask.SwitchToThreadPool();
     }
 
+
+    /**
+     * For console outputs, it needs ILogger interface directly from openmod (passed when constructing the plugin class).
+     */
+
+    /// <summary>
+    /// Printing to output. This only works when using debug build
+    /// </summary>
+    /// <param name="output">The string that the plugin wants to tell</param>
     public async void PrintToOutput(string output) {
 #if DEBUG
       await UniTask.SwitchToMainThread();
@@ -172,42 +234,81 @@ namespace Nekos.SpecialtyPlugin {
 #endif
     }
 
+    /// <summary>
+    /// Print as warning messages
+    /// </summary>
+    /// <param name="output">The string that the plugin wants to tell</param>
     public async void PrintWarning(string output) {
       await UniTask.SwitchToMainThread();
       m_Logger.LogWarning(output);
       await UniTask.SwitchToThreadPool();
     }
 
+    /// <summary>
+    /// Print as error messages
+    /// </summary>
+    /// <param name="output">The string that the plugin wants to tell</param>
     public async void PrintToError(string output) {
       await UniTask.SwitchToMainThread();
       m_Logger.LogError(output);
       await UniTask.SwitchToThreadPool();
     }
 
+    /// <summary>
+    /// Calling event when a player connects
+    /// </summary>
+    /// <param name="playerData">Parameter for the event</param>
     public void CallEvent_OnPlayerConnected(PlayerData playerData) {
       OnPlayerConnected?.Invoke(this, playerData);
     }
 
+    /// <summary>
+    /// Calling event when a player disconnects
+    /// </summary>
+    /// <param name="playerData">Parameter for the event</param>
     public void CallEvent_OnPlayerDisconnected(PlayerData playerData) {
       OnPlayerDisconnected?.Invoke(this, playerData);
     }
 
+    /// <summary>
+    /// Calling event when a player respawning
+    /// </summary>
+    /// <param name="playerData">Parameter for the event</param>
     public void CallEvent_OnPlayerRespawned(PlayerData playerData) {
       OnPlayerRespawned?.Invoke(this, playerData);
     }
 
+    /// <summary>
+    /// Calling event when a player dies
+    /// </summary>
+    /// <param name="playerData">Parameter for the event</param>
     public void CallEvent_OnPlayerDied(PlayerData playerData) {
       OnPlayerDied?.Invoke(this, playerData);
     }
 
+    /// <summary>
+    /// Calling event when a player revived by other player
+    /// </summary>
+    /// <param name="playerData">Parameter for the event</param>
     public void CallEvent_OnPlayerRevived(PlayerData playerData) {
       OnPlayerRevived?.Invoke(this, playerData);
     }
 
+    /// <summary>
+    /// For when refreshing/re-reading configuration
+    /// </summary>
     public void RefreshConfig() {
       skillConfig.RefreshConfig();
     }
 
+    /// <summary>
+    /// Adding/subscribing callbacks for tick event (an event that called every ticks. Look <see cref="TickTimer"/> class).
+    /// </summary>
+    /// <param name="playerID">The player's steam ID</param>
+    /// <param name="spec">What specialty does it needs to keep track</param>
+    /// <param name="idx">What skill index does it needs to keep track</param>
+    /// <param name="cb">The callback when a tick happens</param>
+    /// <param name="obj">The object that the subscriber uses</param>
     public async void AddCallbackOnTick(ulong playerID, EPlayerSpeciality spec, byte idx, OnTickInterval cb, object obj) {
       await Task.Run(() => {
         _tickMutex.WaitOne();
@@ -217,6 +318,12 @@ namespace Nekos.SpecialtyPlugin {
       });
     }
 
+    /// <summary>
+    /// Removing/unsubscribing callbacks from tick event
+    /// </summary>
+    /// <param name="playerID">The player's steam ID</param>
+    /// <param name="spec">What specialty does it needs to keep track</param>
+    /// <param name="idx">What skill index does it needs to keep track</param>
     public async void RemoveCallbackOnTick(ulong playerID, EPlayerSpeciality spec, byte idx) {
       await Task.Run(() => {
         _tickMutex.WaitOne();
@@ -226,13 +333,26 @@ namespace Nekos.SpecialtyPlugin {
       });
     }
 
+    /// <summary>
+    /// To check if certain playerID and certain specialty and skill is subscribed
+    /// </summary>
+    /// <param name="playerID">The player's steam ID</param>
+    /// <param name="spec">What specialty does it needs to keep track</param>
+    /// <param name="idx">What skill index does it needs to keep track</param>
     public bool OnTickContainsKey(ulong playerID, EPlayerSpeciality spec, byte idx) {
       KeyValuePair<ulong, ushort> key = new KeyValuePair<ulong, ushort>(playerID, _toUshort(spec, idx));
       return _tickCallbacks.ContainsKey(key);
     }
   }
 
+
+  /// <summary>
+  /// This class is used for parsing config data from .yaml file and using the data for this plugin
+  /// </summary>
   public class SkillConfig {
+    /// <summary>
+    /// Indexer for parsing data from a string that contains name of the specialty or skill to enums
+    /// </summary>
     public static Dictionary<string, KeyValuePair<byte, Dictionary<string, byte>>> specskill_indexer = new Dictionary<string, KeyValuePair<byte, Dictionary<string, byte>>>(){
       {"offense", new KeyValuePair<byte, Dictionary<string, byte>>((byte)EPlayerSpeciality.OFFENSE, new Dictionary<string, byte>(){
         {"overkill", (byte)EPlayerOffense.OVERKILL },
@@ -266,6 +386,9 @@ namespace Nekos.SpecialtyPlugin {
       })}
     };
 
+    /// <summary>
+    /// Does the opposite of specskill_indexer, this mainly used for display names
+    /// </summary>
     public static Dictionary<EPlayerSpeciality, KeyValuePair<string, Dictionary<byte, string>>> specskill_indexer_inverse = new Dictionary<EPlayerSpeciality, KeyValuePair<string, Dictionary<byte, string>>>(){
       {EPlayerSpeciality.OFFENSE, new KeyValuePair<string, Dictionary<byte, string>>("offense", new Dictionary<byte, string>(){
         {(byte)EPlayerOffense.OVERKILL, "overkill" },
@@ -299,6 +422,9 @@ namespace Nekos.SpecialtyPlugin {
       })}
     };
 
+    /// <summary>
+    /// Indexer for parsing a string of skillset names to EPlayerSKillset enum
+    /// </summary>
     public static Dictionary<string, byte> skillset_indexer = new Dictionary<string, byte>(){
       {"default", (byte)EPlayerSkillset.NONE },
       {"civilian", (byte)EPlayerSkillset.NONE },
@@ -316,6 +442,9 @@ namespace Nekos.SpecialtyPlugin {
       {"admin", 255 }
     };
 
+    /// <summary>
+    /// Indexer for parsing a string containing an event name to ESkillEvent enum
+    /// </summary>
     private static Dictionary<string, ESkillEvent> skillevent_indexer = new Dictionary<string, ESkillEvent>(){
       // OFFENSE
       {"sharpshooter_shoot_dist_div", ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV },
@@ -415,7 +544,14 @@ namespace Nekos.SpecialtyPlugin {
     private readonly IConfiguration configuration;
     private readonly SpecialtyOverhaul plugin;
 
+    /// <summary>
+    /// A class that hold configuration datas for each skillsets
+    /// </summary>
     private class config_data {
+
+      /// <summary>
+      /// Class containing configuration data
+      /// </summary>
       public class skillset_updateconfig {
         public int[][] _base_level = specialtyExpData.InitArrayT<int>();
         public float[][] _mult_level = specialtyExpData.InitArrayT<float>();
@@ -432,9 +568,19 @@ namespace Nekos.SpecialtyPlugin {
         }
       }
 
+      /// <summary>
+      /// Array of floats to store eventskill_updatesumexp configuration data
+      /// </summary>
       public float[] skillevent_exp = new float[(int)ESkillEvent.__len];
+
+      /// <summary>
+      /// Array of skillset_updateconfig to store each skillset configuration data
+      /// </summary>
       public skillset_updateconfig[] skillupdate_configs = new skillset_updateconfig[12];
 
+      /// <summary>
+      /// Determines the interval in second of TickTimer 
+      /// </summary>
       public float tickinterval = 0.1f;
 
       public config_data() {
@@ -445,8 +591,24 @@ namespace Nekos.SpecialtyPlugin {
     }
     private config_data config_Data;
 
-    public enum EOnDiedEditType { OFFSET, MULT, BASE }
-
+    /// <summary>
+    /// Determines how the plugin should decrease certain skill exp
+    ///  - "offset"
+    ///    The value is how many exp to decrement from Player's Specialty exp value
+    ///  - "mult"
+    ///    The value is a multiplier to get the end value
+    ///  - "base"
+    ///    The value is a multiplier, to multiply base_level_exp using the same calculation to determine next level value in order to get decrement value
+    /// </summary>
+    public enum EOnDiedEditType {
+      OFFSET,
+      MULT,
+      BASE
+    }
+    
+    /// <summary>
+    /// Enum for what type of skill event
+    /// </summary>
     public enum ESkillEvent {
       SHARPSHOOTER_SHOOT_DIST_DIV,
       SHARPSHOOTER_SHOOT_DIST_START,
@@ -542,10 +704,21 @@ namespace Nekos.SpecialtyPlugin {
       __len
     }
 
+    /// <summary>
+    /// A custom Exception class that usually thrown when there's a problem when parsing config data
+    /// </summary>
     private class ErrorSettingUpConfig : Exception {
       public ErrorSettingUpConfig(string what) : base(what) {}
     }
 
+    /// <summary>
+    /// Parsing a sublists of configuration data that only contains "specialty.skill"
+    /// </summary>
+    /// <typeparam name="T">The type of the sublists</typeparam>
+    /// <param name="section">The sublists data</param>
+    /// <param name="values">2D array reference for holding specialty-skill datas. The type of array that comes from <see cref="config_data.skillset_updateconfig"/></param>
+    /// <param name="create_error">If true, it throws an error and not continuing on parsing the data</param>
+    /// <exception cref="ErrorSettingUpConfig"></exception>
     private void _process_configdata_copytoarray<T>(IConfigurationSection section, ref T[][] values, bool create_error) {
       var _iter = section.GetChildren();
       const int _supposedlen = specialtyExpData._skill_offense_count + specialtyExpData._skill_defense_count + specialtyExpData._skill_support_count;
@@ -570,6 +743,13 @@ namespace Nekos.SpecialtyPlugin {
         throw new ErrorSettingUpConfig(string.Format("The value(s) isn't sufficient enough to fill {0}.", section.Key));
     }
 
+    /// <summary>
+    ///  Parsing a sublists for ondied_edit_level_exp configuration data
+    /// </summary>
+    /// <param name="section">The sublists data</param>
+    /// <param name="skillset_data">Current skillset data</param>
+    /// <param name="create_error">If true, it throws an error and not continuing on parsing the data</param>
+    /// <exception cref="ErrorSettingUpConfig"></exception>
     private void _process_configdata_copytoarray_ondied_edit(IConfigurationSection section, ref config_data.skillset_updateconfig skillset_data, bool create_error) {
       var _iter = section.GetChildren();
       const int _supposedlen = (specialtyExpData._skill_offense_count + specialtyExpData._skill_defense_count + specialtyExpData._skill_support_count) * 2;
@@ -622,6 +802,12 @@ namespace Nekos.SpecialtyPlugin {
         throw new ErrorSettingUpConfig(string.Format("The value(s) isn't sufficient enough to fill {0}.", section.Key));
     }
 
+    /// <summary>
+    /// Parsing sublists of configuration data that contains what normally a <see cref="config_data.skillset_updateconfig"/> contains. The function used for each skillsets
+    /// </summary>
+    /// <param name="skillset">Current skillset</param>
+    /// <param name="section">The sublists data</param>
+    /// <param name="create_error">If true, it throws an error and not continuing on parsing the data</param>
     private void _process_configdata_skillset(EPlayerSkillset skillset, IConfigurationSection section, bool create_error = false) {
       ref var skillset_data = ref config_Data.skillupdate_configs[(int)skillset];
       var _iter = section.GetChildren();
@@ -667,6 +853,10 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <summary>
+    /// Parsing data for skillset_config configuration data
+    /// </summary>
+    /// <param name="section">The sublists data</param>
     private void _process_configdata_skillsets(IConfigurationSection section) {
       // process default data first
       plugin.PrintToOutput("default key");
@@ -688,6 +878,11 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <summary>
+    /// Parsing data for eventskill_udpatesumexp configuration data
+    /// </summary>
+    /// <param name="section"></param>
+    /// <exception cref="ErrorSettingUpConfig"></exception>
     private void _process_configdata_eventskill(IConfigurationSection section) {
       var _iter = section.GetChildren();
       int _supposedlen = (int)ESkillEvent.__len;
@@ -705,6 +900,9 @@ namespace Nekos.SpecialtyPlugin {
         throw new ErrorSettingUpConfig(string.Format("The value(s) isn't sufficient enough to fill {0}.", section.Key));
     }
 
+
+    /// <param name="plugin">Current plugin object</param>
+    /// <param name="configuration">Interface that handles configuration file data</param>
     public SkillConfig(SpecialtyOverhaul plugin, IConfiguration configuration) {
       this.configuration = configuration;
       this.plugin = plugin;
@@ -712,6 +910,9 @@ namespace Nekos.SpecialtyPlugin {
       config_Data = new config_data();
     }
 
+    /// <summary>
+    /// For re-reading configuration data. Used when .yaml config data has been edited
+    /// </summary>
     public void RefreshConfig() {
       try {
         var _iter = configuration.GetChildren();
@@ -737,23 +938,94 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
-    public int GetMaxLevel(Player player, EPlayerSpeciality spec, byte idx) { return player.skills.skills[(byte)spec][idx].max; }
+    /// <summary>
+    /// Getting certain skill max level
+    /// </summary>
+    /// <param name="player">Current player</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns></returns>
+    public int GetMaxLevel(Player player, EPlayerSpeciality spec, byte idx) {
+      return player.skills.skills[(byte)spec][idx].max;
+    }
 
-    public int GetBaseLevelExp(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) { return config_Data.skillupdate_configs[(int)skillset]._base_level[(int)spec][idx]; }
+    /// <summary>
+    /// Getting certain base level exp
+    /// </summary>
+    /// <param name="skillset">Current skillset</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns>The max level</returns>
+    public int GetBaseLevelExp(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      return config_Data.skillupdate_configs[(int)skillset]._base_level[(int)spec][idx];
+    }
 
-    public float GetMultLevelExp(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) { return config_Data.skillupdate_configs[(int)skillset]._mult_level[(int)spec][idx]; }
+    /// <summary>
+    /// Getting certain skill multiplier
+    /// </summary>
+    /// <param name="skillset">Current skillset</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns>The skill multiplier</returns>
+    public float GetMultLevelExp(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      return config_Data.skillupdate_configs[(int)skillset]._mult_level[(int)spec][idx];
+    }
 
-    public float GetMultMultLevelExp(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) { return config_Data.skillupdate_configs[(int)skillset]._multmult_level[(int)spec][idx]; }
+    /// <summary>
+    /// Getting certain skill multmult (power)
+    /// </summary>
+    /// <param name="skillset">Current skillset</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns>The skill multmult (power)</returns>
+    public float GetMultMultLevelExp(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      return config_Data.skillupdate_configs[(int)skillset]._multmult_level[(int)spec][idx];
+    }
 
-    public float GetOnDiedValue(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) { return config_Data.skillupdate_configs[(int)skillset]._ondied_edit_level_value[(int)spec][idx]; }
+    /// <summary>
+    /// Getting certain value of ondied on certain skill
+    /// </summary>
+    /// <param name="skillset">Current skillset</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns>The OnDied value</returns>
+    public float GetOnDiedValue(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      return config_Data.skillupdate_configs[(int)skillset]._ondied_edit_level_value[(int)spec][idx];
+    }
 
-    public EOnDiedEditType GetOnDiedType(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) { return config_Data.skillupdate_configs[(int)skillset]._ondied_edit_level_type[(int)spec][idx]; }
+    /// <summary>
+    /// Getting certain type of ondied on certain skill
+    /// </summary>
+    /// <param name="skillset">Current skillset</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns>The OnDied type</returns>
+    public EOnDiedEditType GetOnDiedType(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      return config_Data.skillupdate_configs[(int)skillset]._ondied_edit_level_type[(int)spec][idx];
+    }
 
-    public float GetEventUpdate(ESkillEvent skillevent) { return config_Data.skillevent_exp[(int)skillevent]; }
+    /// <summary>
+    /// Getting certain event update
+    /// </summary>
+    /// <param name="skillevent">What skill event</param>
+    /// <returns>A value of the skill event</returns>
+    public float GetEventUpdate(ESkillEvent skillevent) {
+      return config_Data.skillevent_exp[(int)skillevent];
+    }
 
-    public float GetTickInterval() { return config_Data.tickinterval; }
+    /// <summary>
+    /// Getting tick interval in seconds
+    /// </summary>
+    /// <returns>Tick interval in seconds</returns>
+    public float GetTickInterval() {
+      return config_Data.tickinterval;
+    }
   }
 
+
+  /// <summary>
+  /// This class contains player exp data for each skill
+  /// </summary>
   public class specialtyExpData {
     public const int _speciality_count = 3;
     public const int _skill_offense_count = (int)EPlayerOffense.PARKOUR + 1;
@@ -767,18 +1039,31 @@ namespace Nekos.SpecialtyPlugin {
     public int[][] skillsets_exp = InitArrayT<int>();
     public EPlayerSkillset skillset = EPlayerSkillset.NONE;
 
+    
+    /// <summary>
+    /// Creating an array by how many specialties and skills
+    /// </summary>
+    /// <typeparam name="T">The type of the array</typeparam>
+    /// <returns>Array of T</returns>
     public static T[][] InitArrayT<T>() {
-      return new T[_speciality_count][] {// EPlayerspeciality.OFFENSE
-                                         new T[_skill_offense_count],
+      return new T[_speciality_count][] {
+        // EPlayerspeciality.OFFENSE
+        new T[_skill_offense_count],
+ 
+        // EPlayerspeciality.DEFENSE
+        new T[_skill_defense_count],
 
-                                         // EPlayerspeciality.DEFENSE
-                                         new T[_skill_defense_count],
-
-                                         // EPlayerspeciality.SUPPORT
-                                         new T[_skill_support_count]
+        // EPlayerspeciality.SUPPORT
+        new T[_skill_support_count]
       };
     }
 
+    /// <summary>
+    /// Copying an array to target array. The array size is determined by how many specialties and skills. Look at <see cref="InitArrayT{T}"/>
+    /// </summary>
+    /// <typeparam name="T">The type of the array</typeparam>
+    /// <param name="dst">Target array</param>
+    /// <param name="src">Source array</param>
     public static void CopyArrayT<T>(ref T[][] dst, in T[][] src) {
       for (int i = 0; i < _speciality_count; i++) {
         int len = 0;
@@ -803,13 +1088,27 @@ namespace Nekos.SpecialtyPlugin {
     }
   }
 
+
+  /// <summary>
+  /// This class handles the leveling up of a player
+  /// <br/><br/>
+  /// A recap on how calculating the level <br/>
+  /// Basically, <see cref="specialtyExpData"/> only holds total amount of experience the player has, not in levels <br/>
+  /// If an exp has gone beyond the upper border (leveling up), the class call <see cref="_recalculateExpLevel(Player, ref specialtyExpData, PlayerSkills, byte, byte)"/> <br/>
+  /// In that function, it recalculates for the new level and adjusting it if the level already maxed out or not
+  /// </summary>
   public class SkillUpdater {
+    /// <summary>
+    /// Path of the save file
+    /// </summary>
     private static string _savedata_path = "/Player/nekos.specovh.dat";
 
     // for savedata, keys needed to be a length of 4 chars
+    // I don't know why I decided this, probably just me too scared of being inefficient
     private static string _savedata_speckey = "sp.e";
     private static string _savedata_skillsetkey = "ss.v";
 
+    // Used for parsing from skill data to readable skill data
     private static int _barlength = 11;
     private static string _bar_onMax = "MAX";
 
@@ -817,10 +1116,23 @@ namespace Nekos.SpecialtyPlugin {
     private Dictionary<ulong, specialtyExpData> playerExp;
     private Dictionary<ulong, bool> player_isDead;
 
-    // calculation:
-    // float res = base * powf(mult * i, multmult) + base;
-    // float res = Math.Pow(E, Math.Log(((dataf - basef)/basef)/multmultf, Math.E))/multf;
 
+    /** Note for calculation:
+     *  For when getting how much exp needed to level up
+     *    float res = base * powf(mult * i, multmult) + base;
+     *  
+     *  For getting current level based on how many exp the player has
+     *    float res = Math.Pow(E, Math.Log(((dataf - basef)/basef)/multmultf, Math.E))/multf;
+     */
+
+    /// <summary>
+    /// For calculating border of the level. Or in another meaning, calculating how much exp needed to level up
+    /// </summary>
+    /// <param name="data">Current player exp data</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="skill_idx">What skill</param>
+    /// <param name="level">Current level</param>
+    /// <returns>Total exp in integer</returns>
     private int _calculateLevelBorderExp(ref specialtyExpData data, EPlayerSpeciality spec, byte skill_idx, byte level) {
       SkillConfig skillConfig = plugin.SkillConfigInstance;
       float basef = (float)skillConfig.GetBaseLevelExp(data.skillset, spec, skill_idx);
@@ -830,6 +1142,14 @@ namespace Nekos.SpecialtyPlugin {
       return (int)Math.Round(basef * Math.Pow(multf * Math.Max(level - 1, 0), multmultf) + basef);
     }
 
+    /// <summary>
+    /// For calculating current level based on current total exp
+    /// </summary>
+    /// <param name="player">Current player object</param>
+    /// <param name="data">Current player exp data</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="skill_idx">What skill</param>
+    /// <returns>Level in integer</returns>
     private byte _calculateLevel(Player player, ref specialtyExpData data, EPlayerSpeciality spec, byte skill_idx) {
       plugin.PrintToOutput(string.Format("skillset {0}, spec {1}, skill {2}", data.skillset, (int)spec, skill_idx));
       SkillConfig skillConfig = plugin.SkillConfigInstance;
@@ -847,6 +1167,14 @@ namespace Nekos.SpecialtyPlugin {
       return (byte)Math.Min(Math.Floor(Math.Pow(Math.E, Math.Log(dataf / basef / multmultf, Math.E)) / multf), maxlevel);
     }
 
+    /// <summary>
+    /// Recalculating if there are level changes, and applied it to player
+    /// </summary>
+    /// <param name="player">Current player object</param>
+    /// <param name="spc">Current player exp data</param>
+    /// <param name="playerSkills">Current player's PlayerSkills object</param>
+    /// <param name="speciality">What specialty</param>
+    /// <param name="index">What index</param>
     private void _recalculateExpLevel(Player player, ref specialtyExpData spc, PlayerSkills playerSkills, byte speciality, byte index) {
       byte _newlevel = _calculateLevel(player, ref spc, (EPlayerSpeciality)speciality, index);
       plugin.PrintToOutput(string.Format("_newlevel = {0} {1}", _newlevel, plugin.SkillConfigInstance.GetMaxLevel(player, (EPlayerSpeciality)speciality, index)));
@@ -863,24 +1191,67 @@ namespace Nekos.SpecialtyPlugin {
         spc.skillsets_expborderlow[speciality][index] = 0;
     }
 
-    private string _getSpecialtyDataKey(EPlayerSpeciality spec, int skill_idx) { return _savedata_speckey + (char)spec + (char)skill_idx; }
+    /// <summary>
+    /// Getting a key for save files by certain specialty and skill
+    /// </summary>
+    /// <param name="spec">What specialty</param>
+    /// <param name="skill_idx">What skill</param>
+    /// <returns></returns>
+    private string _getSpecialtyDataKey(EPlayerSpeciality spec, int skill_idx) {
+      return _savedata_speckey + (char)spec + (char)skill_idx;
+    }
 
-    private string _getSkillsetDataKey() { return _savedata_skillsetkey; }
+    /// <summary>
+    /// Getting a key of skillset for save files
+    /// </summary>
+    /// <returns></returns>
+    private string _getSkillsetDataKey() {
+      return _savedata_skillsetkey;
+    }
 
+    /// <summary>
+    /// A callback when player is connected. It will load the player's exp data
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <param name="eventData"></param>
     private async void _OnPlayerConnected(object? obj, SpecialtyOverhaul.PlayerData eventData) {
       player_isDead[eventData.player.SteamId.m_SteamID] = false;
       await LoadExp(eventData.player);
     }
 
+    /// <summary>
+    /// A callback when player is disconnected. It will save the player's exp data
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <param name="eventData"></param>
     private async void _OnPlayerDisconnected(object? obj, SpecialtyOverhaul.PlayerData eventData) {
       await Save(eventData.player);
       playerExp.Remove(eventData.player.SteamId.m_SteamID);
     }
 
-    private async void _OnPlayerDied(object? obj, SpecialtyOverhaul.PlayerData eventData) { player_isDead[eventData.player.SteamId.m_SteamID] = true; }
+    /// <summary>
+    /// A callback when player is dead
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <param name="eventData"></param>
+    private async void _OnPlayerDied(object? obj, SpecialtyOverhaul.PlayerData eventData) {
+      player_isDead[eventData.player.SteamId.m_SteamID] = true;
+    }
 
-    private async void _OnPlayerRevived(object? obj, SpecialtyOverhaul.PlayerData eventData) { player_isDead[eventData.player.SteamId.m_SteamID] = false; }
+    /// <summary>
+    /// A callback when player being revived
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <param name="eventData"></param>
+    private async void _OnPlayerRevived(object? obj, SpecialtyOverhaul.PlayerData eventData) {
+      player_isDead[eventData.player.SteamId.m_SteamID] = false;
+    }
 
+    /// <summary>
+    /// A callback when player being respawned. It will recalculating player's exp and modify it
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <param name="eventData"></param>
     private async void _OnPlayerRespawned(object? obj, SpecialtyOverhaul.PlayerData eventData) {
       // to check if the event is caused by player connected or actually respawned
       if (player_isDead[eventData.player.SteamId.m_SteamID]) {
@@ -934,6 +1305,7 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <param name="plugin">Current plugin object</param>
     public SkillUpdater(SpecialtyOverhaul plugin) {
       this.plugin = plugin;
       playerExp = new Dictionary<ulong, specialtyExpData>();
@@ -948,6 +1320,13 @@ namespace Nekos.SpecialtyPlugin {
       plugin.OnPlayerDisconnected -= _OnPlayerDisconnected;
     }
 
+    /// <summary>
+    /// Adding experience to a skill
+    /// </summary>
+    /// <param name="playerID">Player's steam ID</param>
+    /// <param name="sumexp">Amount of experience</param>
+    /// <param name="speciality">What specialty</param>
+    /// <param name="index">What skill</param>
     public void SumSkillExp(CSteamID playerID, float sumexp, byte speciality, byte index) {
       try {
         UnturnedUserProvider? userSearch = plugin.UnturnedUserProviderInstance;
@@ -964,6 +1343,13 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <summary>
+    /// Adding experience to a skill
+    /// </summary>
+    /// <param name="player">Current player object</param>
+    /// <param name="sumexp">Amount of experience</param>
+    /// <param name="speciality">What specialty</param>
+    /// <param name="index">What skill</param>
     public void SumSkillExp(UnturnedPlayer player, float sumexp, byte speciality, byte index) {
       int sumexp_int = (int)Math.Round(sumexp);
       if (sumexp_int <= 0)
@@ -993,6 +1379,13 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <summary>
+    /// Giving player n level for certain skill
+    /// </summary>
+    /// <param name="player">Current UnturnedPlayer object</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="skill">What skill</param>
+    /// <param name="level">Amount of level</param>
     public void GivePlayerLevel(UnturnedPlayer player, byte spec, byte skill, int level) {
       specialtyExpData data = playerExp[player.SteamId.m_SteamID];
 
@@ -1015,6 +1408,13 @@ namespace Nekos.SpecialtyPlugin {
       _recalculateExpLevel(player.Player, ref data, player.Player.skills, spec, skill);
     }
 
+    /// <summary>
+    /// Setting player's skill levels
+    /// </summary>
+    /// <param name="player">Current UnturnedPlayer object</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="skill">What skill</param>
+    /// <param name="level">Amount of level</param>
     public void SetPlayerLevel(UnturnedPlayer player, byte spec, byte skill, int level) {
       specialtyExpData data = playerExp[player.SteamId.m_SteamID];
 
@@ -1034,7 +1434,11 @@ namespace Nekos.SpecialtyPlugin {
       _recalculateExpLevel(player.Player, ref data, player.Player.skills, spec, skill);
     }
 
-    // this function is used when a player joins the server
+    /// <summary>
+    /// This function loads player's exp data. Can also be used for reloading, if the file is edited. This uses <see cref="PlayerSavedata"/> to save and load player data
+    /// </summary>
+    /// <param name="player">Current UnturnedPlayer object</param>
+    /// <returns>If load successfully</returns>
     public async UniTask<bool> LoadExp(UnturnedPlayer player) {
       plugin.PrintToOutput("Loading exp");
       ulong playerID = player.SteamId.m_SteamID;
@@ -1110,6 +1514,10 @@ namespace Nekos.SpecialtyPlugin {
       return true;
     }
 
+    /// <summary>
+    /// This function saves player's current exp data. This uses <see cref="PlayerSavedata"/> to save and load player data
+    /// </summary>
+    /// <param name="player">Current UnturnedPlayer object</param>
     public async UniTask Save(UnturnedPlayer player) {
       ulong playerID = player.SteamId.m_SteamID;
 
@@ -1148,7 +1556,9 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
-    // this function used when needed to save all data to a storage
+    /// <summary>
+    /// Saves all currently connected player's data
+    /// </summary>
     public async UniTask SaveAll() {
       foreach (var data in playerExp) {
         UnturnedUser? user = plugin.UnturnedUserProviderInstance.GetUser(new CSteamID(data.Key));
@@ -1158,6 +1568,10 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <summary>
+    /// Recalculating player's level data. Typically this used when all skills is edited or when player has just connected
+    /// </summary>
+    /// <param name="player">Current UnturnedPlayer object</param>
     public async UniTask RecalculateSpecialty(UnturnedPlayer player) {
       plugin.PrintToOutput("recalculating speciality");
       try {
@@ -1196,6 +1610,15 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
+    /// <summary>
+    /// Parsing exp data to a progress bar
+    /// </summary>
+    /// <param name="player">Current UnturnedPlayer object</param>
+    /// <param name="speciality">What specialty</param>
+    /// <param name="skill_idx">What skill</param>
+    /// <param name="getskillname">Progress bar needs skill name or not</param>
+    /// <param name="getspecname">Progress bar needs specialty name or not</param>
+    /// <returns>A pair of strings that the first one contains the skill name, while the other one contains the progress bar</returns>
     public KeyValuePair<string, string> GetExp_AsProgressBar(UnturnedPlayer player, EPlayerSpeciality speciality, int skill_idx, bool getskillname = false, bool getspecname = false) {
       try {
         specialtyExpData expData = playerExp[player.SteamId.m_SteamID];
@@ -1248,13 +1671,24 @@ namespace Nekos.SpecialtyPlugin {
     }
   }
 
+
+  /// <summary>
+  /// This class use looped timer to generate ticks, or in another term, always updating for each interval time
+  /// </summary>
   public class TickTimer {
     private Task? _tickTask;
     private bool _keepTick = false;
     private float _tickInterval;
 
+    /// <summary>
+    /// Event that invoked when a tick happens
+    /// </summary>
     public event EventHandler? OnTick;
 
+    /// <summary>
+    /// A function that handles each ticks <br/>
+    /// NOTE: should run on seperate Task
+    /// </summary>
     private async void _tickHandler() {
       while (_keepTick) {
         Task _timerTask = Task.Delay((int)(_tickInterval * 1000));
@@ -1263,11 +1697,22 @@ namespace Nekos.SpecialtyPlugin {
       }
     }
 
-    public TickTimer(float tickIntervalS) { _tickInterval = tickIntervalS; }
+    /// <param name="tickIntervalS">Interval time in seconds</param>
+    public TickTimer(float tickIntervalS) {
+      _tickInterval = tickIntervalS;
+    }
 
-    ~TickTimer() { StopTick(); }
+    ~TickTimer() {
+      StopTick();
+    }
 
-    public void ChangeTickInterval(float tickIntervalS) { _tickInterval = tickIntervalS; }
+    /// <summary>
+    /// Changing the interval timing
+    /// </summary>
+    /// <param name="tickIntervalS">Interval time in seconds</param>
+    public void ChangeTickInterval(float tickIntervalS) {
+      _tickInterval = tickIntervalS;
+    }
 
     public void StartTick() {
       _keepTick = true;

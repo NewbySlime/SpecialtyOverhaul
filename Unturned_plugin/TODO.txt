@@ -14,3 +14,9 @@ Leveling fishing skill by actually fishing, not using outdoors exp
 Maybe, our own events by using the mod?
 
 Autoreload config when the config is edited
+
+
+-----REWORK-----
+Config parser rework
+		When starting plugin, if a sublist in the config is invalid, don't throw an error.
+	Instead, the plugin works as normal, but with warning messages and zero values

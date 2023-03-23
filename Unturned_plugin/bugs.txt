@@ -8,5 +8,5 @@ Setting player level to zero or max not actually to that level
 
 
 -----ERRORS-----
-Error on player disconnect (io violation when saving player data)
-Error when punching with bare hands
+Error on player disconnect (io violation when saving player data) [Nekos]
+Error when punching with bare hands 

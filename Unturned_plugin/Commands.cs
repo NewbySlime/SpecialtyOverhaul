@@ -13,11 +13,16 @@ using Nekos.SpecialtyPlugin.Commands;
 using System.Runtime.InteropServices;
 using OpenMod.API.Users;
 using System.Runtime.Remoting.Contexts;
+using OpenMod.Unturned.Players.Life.Events;
 
 namespace Nekos.SpecialtyPlugin.Commands {
-  // CommandParameterParser, as the name suggest, parsing parameters into an object or using callbacks
-  //   to further processing data
+  /// <summary>
+  /// CommandParameterParser, as the name suggest, parsing parameters into an object or using callbacks to further processing data
+  /// </summary>
   static class CommandParameterParser {
+    /// <summary>
+    /// An Exception class where it contains an enum for determining what happened before throwing
+    /// </summary>
     public class ParsingException : Exception {
       private ParsingExceptionType type;
       public ParsingExceptionType Type {
@@ -27,8 +32,21 @@ namespace Nekos.SpecialtyPlugin.Commands {
       public ParsingException(ParsingExceptionType type) { this.type = type; }
     }
 
-    public enum ParsingExceptionType { WRONG_SPECIALTYNAME, WRONG_SKILLNAME }
+    public enum ParsingExceptionType {
+      /// <summary>
+      /// Happens when the name of the specialty is wrong
+      /// </summary>
+      WRONG_SPECIALTYNAME,
+      /// <summary>
+      /// Happens when the name of the skill is wrong
+      /// </summary>
+      WRONG_SKILLNAME
+    }
 
+
+    /// <summary>
+    /// This contains resulting data when parsing parameters using one of the class functions
+    /// </summary>
     public struct ParamResult_ToSpecialty {
       public EPlayerSpeciality spec;
       public byte skillidx;
@@ -37,10 +55,16 @@ namespace Nekos.SpecialtyPlugin.Commands {
       public string nextParam;
     }
 
+    /// <summary>
+    /// Parsing parameter from string of <c>specialty/skill</c> to program-readable parameter. It outputs ParamResult_ToSpecialty by using "result" variable
+    /// </summary>
+    /// <param name="result">The output of the function</param>
+    /// <param name="param">Parameter when calling a command </param>
+    /// <exception cref="ParsingException"></exception>
     public static void ToSpecialty(out ParamResult_ToSpecialty result, string param) {
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       plugin?.PrintToOutput(param);
-
+      
       string specparam = "", skillparam = "";
 
       int _idx = param.IndexOf('/');
@@ -54,11 +78,13 @@ namespace Nekos.SpecialtyPlugin.Commands {
           skillparam = param.Substring(0, _idx).ToLower();
           param = param.Substring(_idx + 1);
           plugin?.PrintToOutput(param);
-        } else {
+        }
+        else {
           skillparam = param;
           param = "";
         }
-      } else {
+      }
+      else {
         specparam = param;
         param = "";
       }
@@ -80,9 +106,11 @@ namespace Nekos.SpecialtyPlugin.Commands {
       } else
         throw new ParsingException(ParsingExceptionType.WRONG_SPECIALTYNAME);
     }
-  }
 
-  static class CommandMiscellaneous {
+    /// <summary>
+    /// Printing a false feedback of when specialty name is invalid
+    /// </summary>
+    /// <param name="currentContext">Current command context used by class that handles commands</param>
     public static async Task Print_OnNoParam(ICommandContext currentContext) {
       await currentContext.Actor.PrintMessageAsync("<specialty> parameter can be:", System.Drawing.Color.YellowGreen);
 
@@ -91,6 +119,13 @@ namespace Nekos.SpecialtyPlugin.Commands {
       }
     }
 
+    /// <summary>
+    /// Parsing a parameter (with user name/id stripped from param), then also process its data. Used for GetLevel/GetPlayerLevel command
+    /// </summary>
+    /// <param name="plugin">Current plugin</param>
+    /// <param name="currentContext">Current command context used by class that handles commands</param>
+    /// <param name="user">The user to get level to</param>
+    /// <param name="param">Command parameters</param>
     public static async Task ParseToMessage_GetLevel(SpecialtyOverhaul plugin, ICommandContext currentContext, UnturnedUser user, string param) {
       CommandParameterParser.ParamResult_ToSpecialty res;
 
@@ -141,7 +176,12 @@ namespace Nekos.SpecialtyPlugin.Commands {
       }
     }
 
-    // parameters with [id/name]/specialty/skill/level
+    /// <summary>
+    /// This parameter is used for commands that use parameter formatting of [id/name]/specialty/skill/level. Then when parsing succeed, the data then passed to callbacks
+    /// </summary>
+    /// <param name="plugin">Current plugin</param>
+    /// <param name="currentContext">Current command context used by class that handles commands</param>
+    /// <param name="OnSuccess">Callback when the parsing succeeds (called every skill)</param>
     public static async Task ParseParameter1(SpecialtyOverhaul plugin, ICommandContext currentContext, System.Action<UnturnedUser, EPlayerSpeciality, byte, int> OnSuccess) {
       if (currentContext.Parameters.Length > 0) {
         try {
@@ -211,6 +251,10 @@ namespace Nekos.SpecialtyPlugin.Commands {
     }
   }
 
+
+  /// <summary>
+  /// Command for when admins want to reload the configuration
+  /// </summary>
   [Command("spcPlugin_reload_config")]
   [CommandDescription("To reload Specialty Overhaul Plugin configuration (Admin Only)")]
   public class ReloadConfigCommand : UnturnedCommand {
@@ -221,6 +265,10 @@ namespace Nekos.SpecialtyPlugin.Commands {
     protected override async UniTask OnExecuteAsync() { await Task.Run(_plugin.RefreshConfig); }
   }
 
+  
+  /// <summary>
+  /// Command when a player wants to know their level(s)
+  /// </summary>
   [Command("GetLevel")]
   [CommandDescription("To get specialty level data")]
   [CommandSyntax("<specialty>/<skill>")]
@@ -236,9 +284,9 @@ namespace Nekos.SpecialtyPlugin.Commands {
           if (user == null)
             throw new Exception(string.Format("Id of {0} is invalid.", Context.Actor.Id));
 
-          await CommandMiscellaneous.ParseToMessage_GetLevel(_plugin, Context, user, await Context.Parameters.GetAsync<string>(0));
+          await CommandParameterParser.ParseToMessage_GetLevel(_plugin, Context, user, await Context.Parameters.GetAsync<string>(0));
         } else
-          await CommandMiscellaneous.Print_OnNoParam(Context);
+          await CommandParameterParser.Print_OnNoParam(Context);
       } catch (Exception e) {
         _plugin.PrintToError("Something went wrong when calling command \"GetLevel\"");
         _plugin.PrintToError(e.ToString());
@@ -246,6 +294,10 @@ namespace Nekos.SpecialtyPlugin.Commands {
     }
   }
 
+
+  /// <summary>
+  /// Command for when an admin want to give level(s) to a player
+  /// </summary>
   [Command("GivePlayerLevel")]
   [CommandDescription("Give player level, can set all skills in a specialty (Admin Only)")]
   [CommandSyntax("<name or id>/<specialty>/<skill>/<number>")]
@@ -256,7 +308,7 @@ namespace Nekos.SpecialtyPlugin.Commands {
 
     protected override async UniTask OnExecuteAsync() {
       try {
-        await CommandMiscellaneous.ParseParameter1(_plugin, Context, (UnturnedUser user, EPlayerSpeciality spec, byte skillidx, int level) => { _plugin.SkillUpdaterInstance.GivePlayerLevel(user.Player, (byte)spec, skillidx, level); });
+        await CommandParameterParser.ParseParameter1(_plugin, Context, (UnturnedUser user, EPlayerSpeciality spec, byte skillidx, int level) => { _plugin.SkillUpdaterInstance.GivePlayerLevel(user.Player, (byte)spec, skillidx, level); });
       } catch (Exception e) {
         _plugin.PrintToError("Something went wrong when calling command \"GivePlayerLevel\"");
         _plugin.PrintToError(e.ToString());
@@ -264,6 +316,10 @@ namespace Nekos.SpecialtyPlugin.Commands {
     }
   }
 
+
+  /// <summary>
+  /// Command for when an admin want to set player level(s)
+  /// </summary>
   [Command("SetPlayerLevel")]
   [CommandDescription("Set player level, can set all skills in a specialty (Admin Only)")]
   [CommandSyntax("<name or id>/<specialty>/<skill>/<number>")]
@@ -274,7 +330,7 @@ namespace Nekos.SpecialtyPlugin.Commands {
 
     protected override async UniTask OnExecuteAsync() {
       try {
-        await CommandMiscellaneous.ParseParameter1(_plugin, Context, (UnturnedUser user, EPlayerSpeciality spec, byte skillidx, int level) => { _plugin.SkillUpdaterInstance.SetPlayerLevel(user.Player, (byte)spec, skillidx, level); });
+        await CommandParameterParser.ParseParameter1(_plugin, Context, (UnturnedUser user, EPlayerSpeciality spec, byte skillidx, int level) => { _plugin.SkillUpdaterInstance.SetPlayerLevel(user.Player, (byte)spec, skillidx, level); });
       } catch (Exception e) {
         _plugin.PrintToError("Something went wrong when calling command \"SetPlayerLevel\"");
         _plugin.PrintToError(e.ToString());
@@ -282,6 +338,10 @@ namespace Nekos.SpecialtyPlugin.Commands {
     }
   }
 
+
+  /// <summary>
+  /// Same as GetLevel command, but with user name/id for when an admin wants to know a player level(s)
+  /// </summary>
   [Command("GetPlayerLevel")]
   [CommandDescription("Get another player level status (Admin only)")]
   [CommandSyntax("<name or id>/<specialty>/<skill>")]
@@ -299,7 +359,7 @@ namespace Nekos.SpecialtyPlugin.Commands {
 
           UnturnedUser? user = await _plugin.UnturnedUserProviderInstance.FindUserAsync("", userstr, UserSearchMode.FindByNameOrId) as UnturnedUser;
           if (user != null)
-            await CommandMiscellaneous.ParseToMessage_GetLevel(_plugin, Context, user, _param.Substring(_idx + 1));
+            await CommandParameterParser.ParseToMessage_GetLevel(_plugin, Context, user, _param.Substring(_idx + 1));
           else
             await Context.Actor.PrintMessageAsync("User name/id not found.", System.Drawing.Color.Red);
         } catch (Exception e) {

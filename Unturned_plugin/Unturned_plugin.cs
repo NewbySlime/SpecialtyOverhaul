@@ -54,6 +54,8 @@ namespace Nekos.SpecialtyPlugin {
     /// </summary>
     private Dictionary<KeyValuePair<ulong, ushort>, KeyValuePair<OnTickInterval, object>> _tickCallbacks = new Dictionary<KeyValuePair<ulong, ushort>, KeyValuePair<OnTickInterval, object>>();
 
+    private Dictionary<ulong, UnturnedPlayer> _players = new Dictionary<ulong, UnturnedPlayer>();
+
     private SkillUpdater skillUpdater;
     public SkillUpdater SkillUpdaterInstance {
       get { return skillUpdater; }
@@ -147,7 +149,7 @@ namespace Nekos.SpecialtyPlugin {
 
       /**
        * In order to get an openmod classes, what you need is to create other classes that contains an interface that you needed.
-       * And searching through the documentation to get what you needed, and there's no explanation on how to get those dependencies.
+       * And searching through the documentation to get what you needed, also there's no explanation on how to get those dependencies.
        * 
        * 
        * This literally took me 2 days figuring out what goes where, so just I can use these functions and create UnturnedUserProvider.
@@ -1139,7 +1141,7 @@ namespace Nekos.SpecialtyPlugin {
       float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
       float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
 
-      return (int)Math.Round(basef * Math.Pow(multf * Math.Max(level - 1, 0), multmultf) + basef);
+      return (int)Math.Round(basef * Math.Pow(multf * level, multmultf));
     }
 
     /// <summary>
@@ -1225,6 +1227,7 @@ namespace Nekos.SpecialtyPlugin {
     /// <param name="obj"></param>
     /// <param name="eventData"></param>
     private async void _OnPlayerDisconnected(object? obj, SpecialtyOverhaul.PlayerData eventData) {
+      plugin.PrintToOutput("on disconnect event");
       await Save(eventData.player);
       playerExp.Remove(eventData.player.SteamId.m_SteamID);
     }
@@ -1520,6 +1523,7 @@ namespace Nekos.SpecialtyPlugin {
     /// <param name="player">Current UnturnedPlayer object</param>
     public async UniTask Save(UnturnedPlayer player) {
       ulong playerID = player.SteamId.m_SteamID;
+      plugin.PrintToOutput(string.Format("saving {0}", player.SteamId.m_SteamID));
 
       try {
         Data data = new Data();

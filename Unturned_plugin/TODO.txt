@@ -7,6 +7,9 @@ Create Mod for changing the UI
 Add Starting Level
 Backstabing zombie, if possible, for sneakybeaky
 Using max level for each skillset
+Add a counter to grindy reload
+
+Prevent AFK players from getting experience
 
 Players can change skillsets (when player first time playing)
 

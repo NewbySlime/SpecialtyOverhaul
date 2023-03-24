@@ -27,7 +27,7 @@ using OpenMod.Unturned.Players.Stats.Events;
 using Nekos.SpecialtyPlugin.CustomEvent;
 using OpenMod.Unturned.Users.Events;
 using OpenMod.Unturned.Players.Movement.Events;
-using UnityEngine.Assertions.Must;
+using UnityEngine.Assertions.Must; 
 
 namespace Nekos.SpecialtyPlugin.Watcher {
   public class NonAutoloadWatcher {
@@ -68,7 +68,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
         if (player != null && zombie != null)
           await Task.Run(() => {
             bool _usemelee = false;
-            if (player.Player.equipment.isEquipped) {
+            if (player.Player.equipment.asset != null) {
               switch (player.Player.equipment.asset.type) {
                 case EItemType.GUN: {
                   float dist = Vector3.Distance(player.Transform.Position, zombie.Transform.Position);
@@ -90,6 +90,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
               _usemelee = true;
 
             if (_usemelee) {
+              plugin.PrintToOutput("checking melee");
               SkillConfig.ESkillEvent eSkillEvent;
               if (zombie.IsAlive)
                 eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_ZOMBIE_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_ZOMBIE;
@@ -159,7 +160,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
         if (player != null)
           await Task.Run(() => {
             bool _usemelee = false;
-            if (player.Player.equipment.isEquipped) {
+            if (player.Player.equipment.asset != null) {
               switch (player.Player.equipment.asset.type) {
                 case EItemType.GUN: {
                   if (@event.Animal.IsAlive) {
@@ -203,7 +204,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
         if (steamID != null)
           player = plugin.UnturnedUserProviderInstance.GetUser(steamID.Value)?.Player;
 
-        if (player != null && player.Player.equipment.asset.type == EItemType.GUN)
+        if (player != null && player.Player.equipment.asset != null && player.Player.equipment.asset.type == EItemType.GUN)
           await Task.Run(() => {
             // sharpshooter
             skillUpdater.SumSkillExp(player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_TIRE), (byte)EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.SHARPSHOOTER);
@@ -219,7 +220,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
 
         if (@event.Instigator != null)
           await Task.Run(() => {
-            if (!@event.Instigator.Player.equipment.isEquipped || @event.Instigator.Player.equipment.asset.type == EItemType.MELEE) {
+            if (@event.Instigator.Player.equipment.asset == null || @event.Instigator.Player.equipment.asset.type == EItemType.MELEE) {
               float _expval = skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.OUTDOORS_RESOURCE_DAMAGING);
               if ((int)skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.OUTDOORS_RESOURCE_DAMAGE_BASED) > 0)
                 _expval *= @event.DamageAmount;

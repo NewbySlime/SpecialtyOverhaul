@@ -1,0 +1,38 @@
+[14:57:23 INF][Nekos.SpecialtyPlugin.SpecialtyOverhaul] on disconnect event
+[14:57:23 INF][Nekos.SpecialtyPlugin.SpecialtyOverhaul] saving 76561198278499205
+[14:57:23 INF][SDG.Unturned] Disconnecting: PlayerID: 76561198278499205 Name: nekos_laimu Character: nekos_laimu
+[14:57:23 ERR][OpenMod.UnityEngine.UnityHostLifetime] Caught UnobservedTaskException
+System.IO.IOException: Sharing violation on path C:\Program Files (x86)\Steam\steamapps\common\U3DS\Servers\Default\OpenMod\openmod.users.yaml
+  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.Boolean anonymous, System.IO.FileOptions options) [0x0019e] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize) [0x00000] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at (wrapper remoting-invoke-with-check) System.IO.FileStream..ctor(string,System.IO.FileMode,System.IO.FileAccess,System.IO.FileShare,int)
+  at System.IO.File.Create (System.String path, System.Int32 bufferSize) [0x00000] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.IO.File.Create (System.String path) [0x00000] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.IO.File.WriteAllBytes (System.String path, System.Byte[] bytes) [0x00000] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at OpenMod.Core.Persistence.YamlDataStore.SaveAsync[T] (System.String key, T data, System.String header) [0x00148] in /home/runner/work/openmod/openmod/framework/OpenMod.Core/Persistence/YamlDataStore.cs:220
+  at OpenMod.Core.Users.UserDataStore+<SaveAsync>d__18.MoveNext () [0x00027] in /home/runner/work/openmod/openmod/framework/OpenMod.Core/Users/UserDataStore.cs:286
+--- End of stack trace from previous location where exception was thrown ---
+  at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw () [0x0000c] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Threading.Tasks.Task task) [0x0003e] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Threading.Tasks.Task task) [0x00028] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.ValidateEnd (System.Threading.Tasks.Task task) [0x00008] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.GetResult () [0x00000] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at OpenMod.Core.Users.UserDataStore+<SetUserDataAsync>d__14.MoveNext () [0x0017f] in /home/runner/work/openmod/openmod/framework/OpenMod.Core/Users/UserDataStore.cs:236
+--- End of stack trace from previous location where exception was thrown ---
+  at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw () [0x0000c] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Threading.Tasks.Task task) [0x0003e] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Threading.Tasks.Task task) [0x00028] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.ValidateEnd (System.Threading.Tasks.Task task) [0x00008] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at System.Runtime.CompilerServices.TaskAwaiter.GetResult () [0x00000] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at OpenMod.Unturned.Users.UnturnedUserProvider+<>c__DisplayClass14_0+<<UpdateLastSeen>b__0>d.MoveNext () [0x000ba] in /home/runner/work/openmod/openmod/unturned/OpenMod.Unturned/Users/UnturnedUserProvider.cs:166
+--- End of stack trace from previous location where exception was thrown ---
+  at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw () [0x0000c] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at Cysharp.Threading.Tasks.UniTask+ExceptionResultSource.GetResult (System.Int16 token) [0x00000] in <b570aeb885074593be3f1a2137ad3fbd>:0
+  at Cysharp.Threading.Tasks.UniTask+<RunOnThreadPool>d__64.MoveNext () [0x0010b] in <b570aeb885074593be3f1a2137ad3fbd>:0
+--- End of stack trace from previous location where exception was thrown ---
+  at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw () [0x0000c] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at Cysharp.Threading.Tasks.UniTask+<RunOnThreadPool>d__64.MoveNext () [0x0019f] in <b570aeb885074593be3f1a2137ad3fbd>:0
+--- End of stack trace from previous location where exception was thrown ---
+  at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw () [0x0000c] in <695d1cc93cca45069c528c15c9fdd749>:0
+  at Cysharp.Threading.Tasks.CompilerServices.AsyncUniTask`1[TStateMachine].GetResult (System.Int16 token) [0x00000] in <b570aeb885074593be3f1a2137ad3fbd>:0
+  at Cysharp.Threading.Tasks.UniTaskExtensions+<>c.<Forget>b__48_0 (System.Object state) [0x00007] in <b570aeb885074593be3f1a2137ad3fbd>:0

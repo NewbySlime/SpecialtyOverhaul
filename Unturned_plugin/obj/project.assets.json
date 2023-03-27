@@ -4501,7 +4501,7 @@
     "C:\\Users\\ASUS\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "0.1.0",
+    "version": "0.1.2",
     "restore": {
       "projectUniqueName": "C:\\Users\\ASUS\\source\\repos\\Unturned_plugin\\Unturned_plugin\\Unturned_plugin.csproj",
       "projectName": "Nekos.SpecialtyPlugin",

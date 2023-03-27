@@ -1,7 +1,7 @@
 # Configuration for SpecialtyOverhaul plugin
 
 # For reference, the calculation for exp needed to level up
-#   res = base * powf(mult * i, multmult) + base
+#   res = base * powf(mult * i, multmult)
 #
 #   Note:
 #     i is current level

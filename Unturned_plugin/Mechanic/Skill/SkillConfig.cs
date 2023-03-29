@@ -11,10 +11,43 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
   /// This class is used for parsing config data from .yaml file and using the data for this plugin
   /// </summary>
   public class SkillConfig {
+    public readonly static byte[][] specskill_default_maxlevel = {
+      new byte[SpecialtyExpData._skill_offense_count] {
+        7,
+        7,
+        5,
+        5,
+        5,
+        5,
+        5,
+      },
+
+      new byte[SpecialtyExpData._skill_defense_count] {
+        7,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      },
+
+      new byte[SpecialtyExpData._skill_support_count] {
+        7,
+        3,
+        5,
+        3,
+        5,
+        7,
+        5,
+        3
+      }
+    };
+
     /// <summary>
     /// Indexer for parsing data from a string that contains name of the specialty or skill to enums
     /// </summary>
-    public static Dictionary<string, KeyValuePair<byte, Dictionary<string, byte>>> specskill_indexer = new Dictionary<string, KeyValuePair<byte, Dictionary<string, byte>>>(){
+    public readonly static Dictionary<string, KeyValuePair<byte, Dictionary<string, byte>>> specskill_indexer = new Dictionary<string, KeyValuePair<byte, Dictionary<string, byte>>>(){
       {"offense", new KeyValuePair<byte, Dictionary<string, byte>>((byte)EPlayerSpeciality.OFFENSE, new Dictionary<string, byte>(){
         {"overkill", (byte)EPlayerOffense.OVERKILL },
         {"sharpshooter", (byte)EPlayerOffense.SHARPSHOOTER },
@@ -50,7 +83,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <summary>
     /// Does the opposite of specskill_indexer, this mainly used for display names
     /// </summary>
-    public static Dictionary<EPlayerSpeciality, KeyValuePair<string, Dictionary<byte, string>>> specskill_indexer_inverse = new Dictionary<EPlayerSpeciality, KeyValuePair<string, Dictionary<byte, string>>>(){
+    public readonly static Dictionary<EPlayerSpeciality, KeyValuePair<string, Dictionary<byte, string>>> specskill_indexer_inverse = new Dictionary<EPlayerSpeciality, KeyValuePair<string, Dictionary<byte, string>>>(){
       {EPlayerSpeciality.OFFENSE, new KeyValuePair<string, Dictionary<byte, string>>("offense", new Dictionary<byte, string>(){
         {(byte)EPlayerOffense.OVERKILL, "overkill" },
         {(byte)EPlayerOffense.SHARPSHOOTER, "sharpshooter" },
@@ -86,7 +119,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <summary>
     /// Indexer for parsing a string of skillset names to EPlayerSKillset enum
     /// </summary>
-    public static Dictionary<string, byte> skillset_indexer = new Dictionary<string, byte>(){
+    public readonly static Dictionary<string, byte> skillset_indexer = new Dictionary<string, byte>(){
       {"default", (byte)EPlayerSkillset.NONE },
       {"civilian", (byte)EPlayerSkillset.NONE },
       {"fire_fighter", (byte)EPlayerSkillset.FIRE },
@@ -99,14 +132,13 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
       {"chef", (byte)EPlayerSkillset.CHEF },
       {"thief", (byte)EPlayerSkillset.THIEF },
       {"doctor", (byte)EPlayerSkillset.MEDIC },
-      {"all", 255 },
       {"admin", 255 }
     };
 
     /// <summary>
     /// Indexer for parsing a string containing an event name to ESkillEvent enum
     /// </summary>
-    private static Dictionary<string, ESkillEvent> skillevent_indexer = new Dictionary<string, ESkillEvent>(){
+    private readonly static Dictionary<string, ESkillEvent> skillevent_indexer = new Dictionary<string, ESkillEvent>(){
       // OFFENSE
       {"sharpshooter_shoot_dist_div", ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV },
       {"sharpshooter_shoot_dist_start", ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START },
@@ -204,6 +236,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
     private readonly IConfiguration configuration;
     private readonly SpecialtyOverhaul plugin;
+
+    private readonly PlayerSkills playerSkills = new PlayerSkills();
 
     private bool _isConfigLoadProperly = false;
     public bool ConfigLoadProperly {
@@ -388,12 +422,14 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="section">The sublists data</param>
     /// <param name="values">2D array reference for holding specialty-skill datas. The type of array that comes from <see cref="config_data.skillset_updateconfig"/></param>
     /// <param name="create_error">If true, it throws an error and not continuing on parsing the data</param>
+    /// <param name="on_notfound">If the parameter not found from the data</param>
     /// <exception cref="ErrorSettingUpConfig"></exception>
-    private void _process_configdata_copytoarray<T>(IConfigurationSection section, ref T[][] values, bool create_error) {
+    private void _process_configdata_copytoarray<T>(IConfigurationSection section, ref T[][] values, bool create_error, Action<byte, byte>? on_notfound = null) {
       var _iter = section.GetChildren();
       const int _supposedlen = SpecialtyExpData._skill_offense_count + SpecialtyExpData._skill_defense_count + SpecialtyExpData._skill_support_count;
       int _assigned = 0;
 
+      bool[][] _btmp = SpecialtyExpData.InitArrayT<bool>();
       foreach(var child in _iter) {
         string[] keys = child.Key.Split('.');
         if(specskill_indexer.ContainsKey(keys[0]) && keys.Length == 2) {
@@ -401,6 +437,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
           if(skill_indexer.Value.ContainsKey(keys[1])) {
             int skill_idx = skill_indexer.Value[keys[1]];
             values[skill_indexer.Key][skill_idx] = child.Get<T>();
+            _btmp[skill_indexer.Key][skill_idx] = true;
 
             _assigned++;
           }
@@ -413,10 +450,19 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
       if(_assigned < _supposedlen && create_error)
         throw new ErrorSettingUpConfig(string.Format("The value(s) isn't sufficient enough to fill {0}.", section.Key));
+
+      if(on_notfound != null) {
+        for(byte i = 0; i < _btmp.Length; i++) {
+          for(byte o = 0; o < _btmp[i].Length; o++) {
+            if(!_btmp[i][o])
+              on_notfound.Invoke(i, o);
+          }
+        }
+      }
     }
 
     /// <summary>
-    ///  Parsing a sublists for ondied_edit_level_exp configuration data
+    /// Parsing a sublists for ondied_edit_level_exp configuration data
     /// </summary>
     /// <param name="section">The sublists data</param>
     /// <param name="skillset_data">Current skillset data</param>
@@ -483,56 +529,51 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="skillset">Current skillset</param>
     /// <param name="section">The sublists data</param>
     /// <param name="create_error">If true, it throws an error and not continuing on parsing the data</param>
-    private void _process_configdata_skillset(EPlayerSkillset skillset, IConfigurationSection section, bool create_error = false) {
-      ref var skillset_data = ref config_Data.skillupdate_configs[(int)skillset];
-      var _iter = section.GetChildren();
-      foreach(var child in _iter) {
-        switch(child.Key) {
-          case "max_level":
-            break;
+    private void _process_configdata_skillset(EPlayerSkillset skillset, IConfigurationSection section, bool create_error = false, bool usedefaultvalue = false) {
+      var skillset_data = config_Data.skillupdate_configs[(int)skillset];
+      Action<byte, byte>? action_notfound = null;
 
-          case "start_level":
-            break;
+      // max_level
+      if(usedefaultvalue)
+        action_notfound = (byte spec, byte idx) => {
+          skillset_data._max_level[spec][idx] = byte.MaxValue;
+        };
+      else
+        action_notfound = null;
 
-          case "base_level_exp":
-            _process_configdata_copytoarray<int>(child, ref skillset_data._base_level, create_error);
-            break;
+      _process_configdata_copytoarray<byte>(section.GetSection("max_level"), ref skillset_data._max_level, false, action_notfound);
 
-          case "mult_level_exp":
-            _process_configdata_copytoarray<float>(child, ref skillset_data._mult_level, create_error);
-            break;
 
-          case "multmult_level_exp": {
-            for(int i_specs = 0; i_specs < SpecialtyExpData._speciality_count; i_specs++) {
-              int _skilllen = 0;
-              switch((EPlayerSpeciality)_skilllen) {
-                case EPlayerSpeciality.OFFENSE:
-                  _skilllen = SpecialtyExpData._skill_offense_count;
-                  break;
+      // start_level
+      if(usedefaultvalue)
+        action_notfound = (byte spec, byte idx) => {
+          skillset_data._start_level[spec][idx] = byte.MinValue;
+        };
+      else
+        action_notfound = null;
 
-                case EPlayerSpeciality.DEFENSE:
-                  _skilllen = SpecialtyExpData._skill_defense_count;
-                  break;
+      _process_configdata_copytoarray<byte>(section.GetSection("start_level"), ref skillset_data._start_level, false, action_notfound);
 
-                case EPlayerSpeciality.SUPPORT:
-                  _skilllen = SpecialtyExpData._skill_support_count;
-                  break;
-              }
 
-              for(int i_skill = 0; i_skill < _skilllen; i_skill++) {
-                skillset_data._multmult_level[i_specs][i_skill] = 1.0f;
-              }
-            }
+      // base_level_exp
+      _process_configdata_copytoarray<int>(section.GetSection("base_level_exp"), ref skillset_data._base_level, create_error);
+      
+      // mult_level_exp
+      _process_configdata_copytoarray<float>(section.GetSection("mult_level_exp"), ref skillset_data._mult_level, create_error);
 
-            _process_configdata_copytoarray<float>(child, ref skillset_data._multmult_level, false);
-          }
-          break;
+      // multmult_level_exp
+      if(usedefaultvalue)
+        action_notfound = (byte spec, byte idx) => {
+          skillset_data._multmult_level[spec][idx] = 1.0f;
+        };
+      else
+        action_notfound = null;
 
-          case "ondied_edit_level_exp":
-            _process_configdata_copytoarray_ondied_edit(child, ref skillset_data, create_error);
-            break;
-        }
-      }
+      _process_configdata_copytoarray<float>(section.GetSection("multmult_level_exp"), ref skillset_data._multmult_level, false, action_notfound);
+
+
+      // ondied_edit_level_exp
+      _process_configdata_copytoarray_ondied_edit(section.GetSection("ondied_edit_level_exp"), ref skillset_data, create_error);
     }
 
     /// <summary>
@@ -541,21 +582,18 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="section">The sublists data</param>
     private void _process_configdata_skillsets(IConfigurationSection section) {
       // process default data first
-      _process_configdata_skillset(EPlayerSkillset.NONE, section.GetSection("default"), true);
+      _process_configdata_skillset(EPlayerSkillset.NONE, section.GetSection("default"), true, true);
 
-      var _iter = section.GetChildren();
-      foreach(var child in _iter) {
-        if(skillset_indexer.ContainsKey(child.Key)) {
-          EPlayerSkillset eSkillset = (EPlayerSkillset)skillset_indexer[child.Key];
-          if(eSkillset == EPlayerSkillset.NONE)
-            continue;
+      foreach(var pair in skillset_indexer) {
+        byte _currskillset = pair.Value;
+        if((EPlayerSkillset)_currskillset == EPlayerSkillset.NONE)
+          continue;
 
-          if((int)eSkillset == 255)
-            eSkillset = (EPlayerSkillset)config_Data.skillupdate_configs.Length - 1;
+        if((byte)_currskillset == 255)
+          _currskillset = (byte)(config_Data.skillupdate_configs.Length - 1);
 
-          config_data.skillset_updateconfig.CopyData(ref config_Data.skillupdate_configs[(int)eSkillset], in config_Data.skillupdate_configs[(int)EPlayerSkillset.NONE]);
-          _process_configdata_skillset(eSkillset, child);
-        }
+        config_data.skillset_updateconfig.CopyData(ref config_Data.skillupdate_configs[_currskillset], in config_Data.skillupdate_configs[(int)EPlayerSkillset.NONE]);
+        _process_configdata_skillset((EPlayerSkillset)_currskillset, section.GetSection(pair.Key));
       }
     }
 
@@ -598,23 +636,14 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <returns>Returns true if the configuration load properly</returns>
     public bool RefreshConfig() {
       try {
-        var _iter = configuration.GetChildren();
+        // skillset_config
+        _process_configdata_skillsets(configuration.GetSection("skillset_config"));
 
-        foreach(var child in _iter) {
-          switch(child.Key) {
-            case "skillset_config":
-              _process_configdata_skillsets(child);
-              break;
+        // eventskill_updatesumexp
+        _process_configdata_eventskill(configuration.GetSection("eventskill_updatesumexp"));
 
-            case "eventskill_updatesumexp":
-              _process_configdata_eventskill(child);
-              break;
-
-            case "tick_interval":
-              config_Data.tickinterval = child.Get<float>();
-              break;
-          }
-        }
+        // tick_interval
+        config_Data.tickinterval = configuration.GetValue<float>("tick_interval", 0.3f);
 
         _isConfigLoadProperly = true;
       }
@@ -631,11 +660,28 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// Getting certain skill max level
     /// </summary>
     /// <param name="player">Current player</param>
+    /// <param name="skillset">Player skillset</param>
     /// <param name="spec">What specialty</param>
     /// <param name="idx">What skill</param>
     /// <returns></returns>
-    public int GetMaxLevel(Player player, EPlayerSpeciality spec, byte idx) {
-      return player.skills.skills[(byte)spec][idx].max;
+    public byte GetMaxLevel(Player player, EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      byte _playermax = player.skills.skills[(byte)spec][idx].max;
+      byte _currentmax = config_Data.skillupdate_configs[(byte)skillset]._max_level[(byte)spec][idx];
+      if(_currentmax > _playermax)
+        return _playermax;
+      else
+        return _currentmax;
+    }
+    
+    /// <summary>
+    /// Getting certain skill starting level
+    /// </summary>
+    /// <param name="skillset">Player skillset</param>
+    /// <param name="spec">What specialty</param>
+    /// <param name="idx">What skill</param>
+    /// <returns></returns>
+    public byte GetStartLevel(Player player, EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+      return config_Data.skillupdate_configs[(int)skillset]._start_level[(int)spec][idx];
     }
 
     /// <summary>

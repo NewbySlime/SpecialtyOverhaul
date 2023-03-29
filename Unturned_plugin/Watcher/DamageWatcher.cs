@@ -10,14 +10,12 @@ using OpenMod.Unturned.Zombies;
 using SDG.Unturned;
 using Steamworks;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace Nekos.SpecialtyPlugin.Watcher {
   public class DamageWatcher: IEventListener<UnturnedZombieDamagingEvent>, IEventListener<UnturnedPlayerDamagingEvent>, IEventListener<UnturnedVehicleDamagingTireEvent>, IEventListener<UnturnedAnimalDamagingEvent>, IEventListener<UnturnedResourceDamagingEvent> {
-    private static float _calculateDistExp(float base_exp, float dist, float min_dist, float div) {
+    public static float CalculateDistExp(float base_exp, float dist, float min_dist, float div) {
       if(dist >= min_dist)
         return (dist - min_dist) / div * base_exp;
 
@@ -39,14 +37,10 @@ namespace Nekos.SpecialtyPlugin.Watcher {
               switch(player.Player.equipment.asset.type) {
                 case EItemType.GUN: {
                   float dist = Vector3.Distance(player.Transform.Position, zombie.Transform.Position);
-                  SkillConfig.ESkillEvent eSkillEvent;
-                  if(zombie.IsAlive)
-                    eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER_CRIT : SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER;
-                  else
-                    eSkillEvent = SkillConfig.ESkillEvent.SHARPSHOOTER_ZOMBIE_KILLED_GUN;
+                  SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER_CRIT : SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER;
 
                   // sharpshooter
-                  updater.SumSkillExp(player, _calculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)), (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.SHARPSHOOTER);
+                  updater.SumSkillExp(player, CalculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)), (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.SHARPSHOOTER);
                 }
                 break;
 
@@ -61,14 +55,10 @@ namespace Nekos.SpecialtyPlugin.Watcher {
 
             if(_usemelee) {
               plugin.PrintToOutput("checking melee");
-              SkillConfig.ESkillEvent eSkillEvent;
-              if(zombie.IsAlive)
-                eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_ZOMBIE_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_ZOMBIE;
-              else
-                eSkillEvent = SkillConfig.ESkillEvent.OVERKILL_ZOMBIE_KILLED_MELEE;
+              SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_ZOMBIE_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_ZOMBIE;
 
               float _expval = config.GetEventUpdate(eSkillEvent);
-              if(eSkillEvent != SkillConfig.ESkillEvent.OVERKILL_ZOMBIE_KILLED_MELEE && (int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
+              if((int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
                 _expval *= @event.DamageAmount;
 
               // overkill
@@ -97,20 +87,16 @@ namespace Nekos.SpecialtyPlugin.Watcher {
                   eSkillEvent = SkillConfig.ESkillEvent.SHARPSHOOTER_PLAYER_KILLED_GUN;
 
                 // sharpshooter
-                updater.SumSkillExp(player, _calculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)), (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.SHARPSHOOTER);
+                updater.SumSkillExp(player, CalculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)), (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.SHARPSHOOTER);
               }
               break;
 
               case EDeathCause.PUNCH:
               case EDeathCause.MELEE: {
-                SkillConfig.ESkillEvent eSkillEvent;
-                if(player.PlayerLife.isDead)
-                  eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER;
-                else
-                  eSkillEvent = SkillConfig.ESkillEvent.OVERKILL_PLAYER_KILLED_MELEE;
+                SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER;
 
                 float _expval = config.GetEventUpdate(eSkillEvent);
-                if(eSkillEvent != SkillConfig.ESkillEvent.OVERKILL_PLAYER_KILLED_MELEE && (int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
+                if((int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
                   _expval *= @event.DamageAmount;
 
                 // overkill
@@ -156,9 +142,9 @@ namespace Nekos.SpecialtyPlugin.Watcher {
               _usemelee = true;
 
             if(_usemelee) {
-              SkillConfig.ESkillEvent eSkillEvent = @event.Animal.IsAlive ? SkillConfig.ESkillEvent.OVERKILL_MELEE_ANIMAL : SkillConfig.ESkillEvent.OVERKILL_ANIMAL_KILLED_MELEE;
+              SkillConfig.ESkillEvent eSkillEvent = SkillConfig.ESkillEvent.OVERKILL_MELEE_ANIMAL;
               float _expval = skillConfig.GetEventUpdate(eSkillEvent);
-              if(eSkillEvent != SkillConfig.ESkillEvent.OVERKILL_ANIMAL_KILLED_MELEE && skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
+              if((int)skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
                 _expval *= @event.DamageAmount;
 
               // overkill

@@ -14,6 +14,10 @@
 skillset_config:
   # Used on civilian role, also used when other skillsets don't have the parameters supplied in the default
   default:
+    start_level:
+      # NOTE: players can't cook if the skill still in level 0
+      support.cooking: 1
+
     # This value is used with mult_level_exp to determine the value when to level up
     # type: int
     base_level_exp:
@@ -162,11 +166,6 @@ skillset_config:
 #   And some values will be multiplier
 #     If 0 (false), values of exp summed will be constant, based
 #   on the event
-#
-# WARNING:
-#     For multiplier values, think twice when setting the value
-#   below 1. As the final results will be rounded
-#     Except for values that using ticks to sum
 #
 # type: float
 eventskill_updatesumexp:

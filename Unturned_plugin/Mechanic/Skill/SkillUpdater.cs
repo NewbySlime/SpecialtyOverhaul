@@ -41,10 +41,10 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
     /** Note for calculation:
      *  For when getting how much exp needed to level up
-     *    float res = base * powf(mult * i, multmult);
+     *    float res = base * Math.Pow(mult * i, multmult);
      *  
      *  For getting current level based on how many exp the player has
-     *    float res = Math.Pow(E, Math.Log(((dataf - basef)/basef)/multmultf, Math.E))/multf;
+     *    float res = Math.Pow(dataf/basef, 1.0/multmultf)/multf
      */
 
     /// <summary>
@@ -61,7 +61,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
       float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
       float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
 
-      return (int)Math.Round(basef * Math.Pow(multf * level, multmultf));
+      return (int)Math.Ceiling(basef * Math.Pow(multf * level, multmultf));
     }
 
     /// <summary>
@@ -73,20 +73,27 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="skill_idx">What skill</param>
     /// <returns>Level in integer</returns>
     private byte _calculateLevel(Player player, ref SpecialtyExpData data, EPlayerSpeciality spec, byte skill_idx) {
-      plugin.PrintToOutput(string.Format("skillset {0}, spec {1}, skill {2}", data.skillset, (int)spec, skill_idx));
       SkillConfig skillConfig = plugin.SkillConfigInstance;
-      int maxlevel = skillConfig.GetMaxLevel(player, spec, skill_idx);
+      int maxlevel = skillConfig.GetMaxLevel(player, data.skillset, spec, skill_idx);
       float dataf = (float)data.skillsets_exp[(int)spec][skill_idx];
       float basef = (float)skillConfig.GetBaseLevelExp(data.skillset, spec, skill_idx);
-      plugin.PrintToOutput(string.Format("Exp = {0} {1}", dataf, basef));
-      float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
-      float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
 
       if(dataf < basef)
         return 0;
 
-      dataf += 1;
-      return (byte)Math.Min(Math.Floor(Math.Pow(Math.E, Math.Log(dataf / basef / multmultf, Math.E)) / multf), maxlevel);
+      float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
+      float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
+
+      // getting fraction of the result
+      float _lvl = (float)Math.Pow(dataf / basef, 1.0 / multmultf) / multf;
+      int nlvl = (int)Math.Floor(_lvl);
+      _lvl -= nlvl;
+
+      // check floating-point error
+      if(_lvl > 0.99)
+        nlvl++;
+
+      return (byte)Math.Min(nlvl, maxlevel);
     }
 
     /// <summary>
@@ -99,30 +106,23 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="index">What index</param>
     private void _recalculateExpLevel(Player player, ref SpecialtyExpData spc, PlayerSkills playerSkills, byte speciality, byte index) {
       byte _newlevel = _calculateLevel(player, ref spc, (EPlayerSpeciality)speciality, index);
+      byte _minlevel = plugin.SkillConfigInstance.GetStartLevel(player, spc.skillset, (EPlayerSpeciality)speciality, index);
 
-      switch((EPlayerSpeciality)speciality) {
-        case EPlayerSpeciality.SUPPORT:
-          switch((EPlayerSupport)index) {
-            case EPlayerSupport.COOKING:
-              if(_newlevel < 1)
-                _newlevel = 1;
-              break;
-          }
-          break;
-      }
+      if(_newlevel < _minlevel)
+        _newlevel = _minlevel;
 
-      plugin.PrintToOutput(string.Format("_newlevel = {0} {1}", _newlevel, plugin.SkillConfigInstance.GetMaxLevel(player, (EPlayerSpeciality)speciality, index)));
       playerSkills.ServerSetSkillLevel(speciality, index, _newlevel);
 
-      if(_newlevel < plugin.SkillConfigInstance.GetMaxLevel(player, (EPlayerSpeciality)speciality, index))
+      if(_newlevel < plugin.SkillConfigInstance.GetMaxLevel(player, spc.skillset, (EPlayerSpeciality)speciality, index))
         spc.skillsets_expborderhigh[speciality][index] = _calculateLevelBorderExp(ref spc, (EPlayerSpeciality)speciality, index, (byte)(_newlevel + 1));
       else
         spc.skillsets_expborderhigh[speciality][index] = Int32.MaxValue;
 
-      if(_newlevel > 0)
-        spc.skillsets_expborderlow[speciality][index] = _calculateLevelBorderExp(ref spc, (EPlayerSpeciality)speciality, index, _newlevel);
-      else
-        spc.skillsets_expborderlow[speciality][index] = 0;
+      spc.skillsets_expborderlow[speciality][index] = _calculateLevelBorderExp(ref spc, (EPlayerSpeciality)speciality, index, _newlevel);
+
+
+      if(spc.skillsets_exp[speciality][index] < spc.skillsets_expborderlow[speciality][index])
+        spc.skillsets_exp[speciality][index] = spc.skillsets_expborderlow[speciality][index];
     }
 
     /// <summary>
@@ -342,7 +342,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
       int newlevel;
       {
-        int maxlevel = plugin.SkillConfigInstance.GetMaxLevel(player.Player, (EPlayerSpeciality)spec, skill);
+        int maxlevel = plugin.SkillConfigInstance.GetMaxLevel(player.Player, data.skillset, (EPlayerSpeciality)spec, skill);
         int currentlevel = _calculateLevel(player.Player, ref data, (EPlayerSpeciality)spec, skill);
 
         newlevel = currentlevel + level;
@@ -371,15 +371,18 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         if(currentlevel == level)
           return;
 
-        int maxlevel = plugin.SkillConfigInstance.GetMaxLevel(player.Player, (EPlayerSpeciality)spec, skill);
+        int maxlevel = plugin.SkillConfigInstance.GetMaxLevel(player.Player, data.skillset, (EPlayerSpeciality)spec, skill);
         if(level < 0)
           level = 0;
         else if(level > maxlevel)
           level = maxlevel;
       }
 
+      plugin.PrintToOutput(string.Format("currentlevel {0}", level));
+
       data.skillsets_exp[spec][skill] = _calculateLevelBorderExp(ref data, (EPlayerSpeciality)spec, skill, (byte)level);
       _recalculateExpLevel(player.Player, ref data, player.Player.skills, spec, skill);
+      plugin.PrintToOutput(string.Format("new exp {0}", data.skillsets_exp[spec][skill]));
     }
 
     /// <summary>

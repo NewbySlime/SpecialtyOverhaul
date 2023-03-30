@@ -9,9 +9,19 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using OpenMod.Core.Plugins.Events;
 
 namespace Nekos.SpecialtyPlugin.Watcher {
-  public class InventoryWatcher: IEventListener<UnturnedPlayerTakingItemEvent>, IEventListener<UnturnedPlayerDroppedItemEvent>, IEventListener<UnturnedPlayerItemAddedEvent>, IEventListener<UnturnedPlayerItemRemovedEvent>, IEventListener<UnturnedPlayerConnectedEvent> {
+  public class InventoryWatcher:
+    IEventListener<UnturnedPlayerTakingItemEvent>,
+    IEventListener<UnturnedPlayerDroppedItemEvent>,
+    IEventListener<UnturnedPlayerItemAddedEvent>,
+    IEventListener<UnturnedPlayerItemRemovedEvent>,
+
+    IEventListener<UnturnedPlayerConnectedEvent>,
+
+    IEventListener<PluginUnloadedEvent>
+    {
     public class ReloadWatcher {
       // note: there's a reason why shouldn't this be normal sync func
       //  because it needs to be processed in one thread, even if this
@@ -133,6 +143,10 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       await UniTask.SwitchToMainThread();
       _changeData(@event.Player.SteamId.m_SteamID, ELastState.ANY);
       await UniTask.SwitchToThreadPool();
+    }
+
+    public async Task HandleEventAsync(Object? obj, PluginUnloadedEvent @event) {
+      
     }
 
     public static void AddPlayer(UnturnedPlayer player) {

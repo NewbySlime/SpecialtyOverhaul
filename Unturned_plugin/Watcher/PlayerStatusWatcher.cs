@@ -11,7 +11,8 @@ using Nekos.SpecialtyPlugin.CustomEvent;
 using OpenMod.Unturned.Users.Events;
 
 using Nekos.SpecialtyPlugin.Mechanic.Skill;
-
+using OpenMod.Core.Plugins.Events;
+using OpenMod.Core.Eventing;
 
 namespace Nekos.SpecialtyPlugin.Watcher {
   public class PlayerStatusWatcher:
@@ -30,7 +31,10 @@ namespace Nekos.SpecialtyPlugin.Watcher {
 
     IEventListener<UnturnedUserDisconnectedEvent>,
     IEventListener<UnturnedUserRecheckEvent>,
-    IEventListener<UnturnedPlayerSpawnedEvent> {
+    IEventListener<UnturnedPlayerSpawnedEvent>,
+    
+    IEventListener<PluginUnloadedEvent>
+    {
 
     private class Byteref {
       public byte data;
@@ -63,15 +67,23 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     private static Dictionary<ulong, Byteref> _lastOxygen = new Dictionary<ulong, Byteref>();
     private static Dictionary<ulong, Byteref> _lastVirus = new Dictionary<ulong, Byteref>();
 
-    private static Dictionary<ulong, bool> _isAided = new Dictionary<ulong, bool>();
+    private static HashSet<ulong> _isAided = new HashSet<ulong>();
 
-    private static void _addPlayerToWatch(UnturnedPlayer player) {
-      _lastHealth[player.SteamId.m_SteamID] = new Byteref { data = player.PlayerLife.health };
-      _lastStamina[player.SteamId.m_SteamID] = new Byteref { data = player.PlayerLife.stamina };
-      _lastOxygen[player.SteamId.m_SteamID] = new Byteref { data = player.PlayerLife.oxygen };
-      _lastVirus[player.SteamId.m_SteamID] = new Byteref { data = player.PlayerLife.virus };
-      _vitalityValueMaintain[player.SteamId.m_SteamID] = new Byteref { data = 0 };
-      _survivalValueMaintain[player.SteamId.m_SteamID] = new Byteref { data = 0 };
+    private void _addPlayerToWatch(UnturnedPlayer player) {
+      SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
+
+      if(plugin != null) {
+        // the code below should be for events that uses ticks
+        Task.Run(async () => {
+          await HandleEventAsync(null, new UnturnedPlayerOxygenUpdatedEvent(player, player.PlayerLife.oxygen));
+          await HandleEventAsync(null, new UnturnedPlayerStaminaUpdatedEvent(player, player.PlayerLife.stamina));
+          await HandleEventAsync(null, new UnturnedPlayerFoodUpdatedEvent(player, player.PlayerLife.food));
+          await HandleEventAsync(null, new UnturnedPlayerWaterUpdatedEvent(player, player.PlayerLife.water));
+          await HandleEventAsync(null, new UnturnedPlayerVirusUpdatedEvent(player, player.PlayerLife.virus));
+          await HandleEventAsync(null, new UnturnedPlayerHealthUpdatedEvent(player, player.PlayerLife.health));
+          await HandleEventAsync(null, new UnturnedPlayerTemperatureUpdatedEvent(player, player.PlayerLife.temperature));
+        });
+      }
     }
 
     private static void _stopTickWatch(UnturnedPlayer player) {
@@ -299,7 +311,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
           }
           else if(_delta > 0) {
             // healing
-            if(_isAided.ContainsKey(@event.Player.SteamId.m_SteamID))
+            if(_isAided.Contains(@event.Player.SteamId.m_SteamID))
               _isAided.Remove(@event.Player.SteamId.m_SteamID);
             else {
               plugin.SkillUpdaterInstance.SumSkillExp(@event.Player, (float)(plugin.SkillConfigInstance.GetEventUpdate(SkillConfig.ESkillEvent.HEALING_HEALTH_MULT) * _delta), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.HEALING);
@@ -316,6 +328,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     public async Task HandleEventAsync(Object? obj, UnturnedPlayerTemperatureUpdatedEvent @event) {
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       if(plugin != null) {
+        plugin.PrintToOutput("temperature update");
         if(plugin.OnTickContainsKey(@event.Player.SteamId.m_SteamID, EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.WARMBLOODED)) {
           switch(@event.Temperature) {
             case EPlayerTemperature.WARM:
@@ -395,8 +408,18 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       _addPlayerToWatch(@event.user.Player);
     }
 
+    public async Task HandleEventAsync(Object? obj, PluginUnloadedEvent @event) {
+      _survivalValueMaintain.Clear();
+      _vitalityValueMaintain.Clear();
+      _lastHealth.Clear();
+      _lastStamina.Clear();
+      _lastOxygen.Clear();
+      _lastVirus.Clear();
+      _isAided.Clear();
+    }
+
     public static void AddIsAided(ulong player) {
-      _isAided[player] = true;
+      _isAided.Add(player);
     }
   }
 }

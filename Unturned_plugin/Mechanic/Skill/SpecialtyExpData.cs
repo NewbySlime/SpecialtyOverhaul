@@ -72,5 +72,32 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         }
       }
     }
+
+    /// <summary>
+    /// For iterating each specialty and skill
+    /// </summary>
+    /// <typeparam name="T">The array type</typeparam>
+    /// <param name="callback">Callback to handle it</param>
+    public static void IterateArrayT<T>(System.Action<EPlayerSpeciality, byte> callback) {
+      for(byte i_specs = 0; i_specs < _speciality_count; i_specs++) {
+        byte skill_len = 0;
+        switch((EPlayerSpeciality)i_specs) {
+          case EPlayerSpeciality.OFFENSE:
+            skill_len = _skill_offense_count;
+            break;
+
+          case EPlayerSpeciality.DEFENSE:
+            skill_len = _skill_defense_count;
+            break;
+
+          case EPlayerSpeciality.SUPPORT:
+            skill_len = _skill_support_count;
+            break;
+        }
+
+        for(byte i_skill = 0; i_skill < skill_len; i_skill++)
+          callback.Invoke((EPlayerSpeciality)i_specs, i_skill);
+      }
+    }
   }
 }

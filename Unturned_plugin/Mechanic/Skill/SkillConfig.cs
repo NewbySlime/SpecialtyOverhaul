@@ -264,6 +264,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         public EOnDiedEditType[][] _ondied_edit_level_type = SpecialtyExpData.InitArrayT<EOnDiedEditType>();
 
         public static void CopyData(ref skillset_updateconfig dst, in skillset_updateconfig src) {
+          SpecialtyExpData.CopyArrayT<byte>(ref dst._max_level, in src._max_level);
+          SpecialtyExpData.CopyArrayT<byte>(ref dst._start_level, in src._start_level);
           SpecialtyExpData.CopyArrayT<int>(ref dst._base_level, in src._base_level);
           SpecialtyExpData.CopyArrayT<float>(ref dst._mult_level, in src._mult_level);
           SpecialtyExpData.CopyArrayT<float>(ref dst._multmult_level, in src._multmult_level);
@@ -542,6 +544,11 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         action_notfound = null;
 
       _process_configdata_copytoarray<byte>(section.GetSection("max_level"), ref skillset_data._max_level, false, action_notfound);
+      SpecialtyExpData.IterateArrayT<byte>((EPlayerSpeciality spec, byte skill) => {
+        byte defmaxlevel = specskill_default_maxlevel[(byte)spec][skill];
+        if(skillset_data._max_level[(byte)spec][skill] > defmaxlevel)
+          skillset_data._max_level[(byte)spec][skill] = defmaxlevel; 
+      });
 
 
       // start_level

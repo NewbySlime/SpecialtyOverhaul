@@ -312,7 +312,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
           plugin.PrintToOutput(string.Format("Level {0}, Exp {1}, MaxExp {2}", player.Player.skills.skills[speciality][index].level, newexp, spc.skillsets_expborderhigh[speciality][index]));
 
           if(speciality == (byte)EPlayerSpeciality.SUPPORT && index == (byte)EPlayerSupport.OUTDOORS)
-            SumSkillExp(player, sumexp, speciality, (byte)EPlayerSupport.FISHING);
+            SumSkillExp(player, sumexp * plugin.SkillConfigInstance.GetEventUpdate(SkillConfig.ESkillEvent.FISHING_ON_OUTDOORS_SKILL_MULT), speciality, (byte)EPlayerSupport.FISHING);
 
           spc.skillsets_exp[speciality][index] = newexp;
           if(newexp >= spc.skillsets_expborderhigh[speciality][index] || newexp < spc.skillsets_expborderlow[speciality][index]) {

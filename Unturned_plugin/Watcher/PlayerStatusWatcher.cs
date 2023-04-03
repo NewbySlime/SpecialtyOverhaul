@@ -31,7 +31,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
 
     IEventListener<UnturnedUserDisconnectedEvent>,
     
-    IEventListener<PluginUnloadedEvent>,
+    IEventListener<PluginUnloadedEvent>
 
     IEventListener<PluginUserRecheckEvent>,
     IEventListener<UnturnedPlayerSpawnedEvent> {

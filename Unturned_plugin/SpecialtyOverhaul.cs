@@ -234,12 +234,8 @@ namespace Nekos.SpecialtyPlugin {
         await Task.Run(RefreshConfig);
 
         var userCollection = userProvider.GetOnlineUsers();
-        foreach (var user in userCollection) {
-          await skillUpdater.LoadExp(user.Player);
-          
-          UnturnedUserRecheckEvent userRecheck = new UnturnedUserRecheckEvent(user);
-          await EventBus.EmitAsync(this, this, userRecheck);
-        }
+        foreach (var user in userCollection) 
+          OnUserRecheck?.Invoke(this, user);
 
         _tickTimer.OnTick += _onTick;
         _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());

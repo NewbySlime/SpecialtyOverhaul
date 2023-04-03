@@ -2,6 +2,7 @@
 using OpenMod.Core.Commands;
 using OpenMod.Unturned.Commands;
 using OpenMod.Unturned.Users;
+using Serilog.Core;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ namespace Nekos.SpecialtyPlugin.Commands {
   /// Command when a player wants to know their level(s)
   /// </summary>
   [Command("GetLevel")]
+  [CommandAlias("Skill")]
   [CommandDescription("To get specialty level data")]
   [CommandSyntax("<specialty>/<skill>")]
   [CommandActor(typeof(UnturnedUser))]

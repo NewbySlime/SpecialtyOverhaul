@@ -29,7 +29,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     IEventListener<UnturnedPlayerDeathEvent>,
 
     IEventListener<UnturnedUserDisconnectedEvent>,
-    IEventListener<UnturnedUserRecheckEvent>,
+    IEventListener<PluginUserRecheckEvent>,
     IEventListener<UnturnedPlayerSpawnedEvent> {
 
     private class Byteref {
@@ -391,8 +391,11 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       _addPlayerToWatch(@event.Player);
     }
 
-    public async Task HandleEventAsync(Object? obj, UnturnedUserRecheckEvent @event) {
-      _addPlayerToWatch(@event.user.Player);
+    public async Task HandleEventAsync(Object? obj, PluginUserRecheckEvent @event) {
+      SpecialtyOverhaul.Instance?.PrintToOutput("user rechecking");
+      if(@event.param.HasValue)
+        _addPlayerToWatch(@event.param.Value.user.Player);
+      SpecialtyOverhaul.Instance?.PrintToOutput("done processing");
     }
 
     public static void AddIsAided(ulong player) {

@@ -1,83 +1,68 @@
 ﻿using Cysharp.Threading.Tasks;
 using Nekos.SpecialtyPlugin.Mechanic.Skill;
+using Nekos.SpecialtyPlugin.CustomEvent;
 using OpenMod.API.Eventing;
 using OpenMod.Unturned.Players.Connections.Events;
 using OpenMod.Unturned.Players.Inventory.Events;
 using OpenMod.Unturned.Players;
 using SDG.Unturned;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using UnityEngine;
+using SmartFormat.Utilities;
+using System;
 
 namespace Nekos.SpecialtyPlugin.Watcher {
-  public class InventoryWatcher: IEventListener<UnturnedPlayerTakingItemEvent>, IEventListener<UnturnedPlayerDroppedItemEvent>, IEventListener<UnturnedPlayerItemAddedEvent>, IEventListener<UnturnedPlayerItemRemovedEvent>, IEventListener<UnturnedPlayerConnectedEvent> {
-    public class ReloadWatcher {
-      // note: there's a reason why shouldn't this be normal sync func
-      //  because it needs to be processed in one thread, even if this
-      //  is a normal sync function, there's a chance that the events
-      //  are processed in different threads
-      private void _onReloading(UseableGun gun) {
-        _async_onReloading(gun).Wait();
-      }
+  public class InventoryWatcher: 
+    IEventListener<UnturnedPlayerTakingItemEvent>, 
+    IEventListener<UnturnedPlayerDroppedItemEvent>, 
+    IEventListener<UnturnedPlayerItemAddedEvent>, 
+    IEventListener<UnturnedPlayerItemRemovedEvent>, 
+    IEventListener<UnturnedPlayerItemUpdatedEvent>,
 
-      private async Task _async_onReloading(UseableGun gun) {
-        await UniTask.SwitchToMainThread();
-        SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
-        plugin?.PrintToOutput("reloading gun");
-        plugin?.PrintToOutput(gun.player.GetNetId().id.ToString());
-        if(plugin != null) {
-          // before: InventoryWatcher (UnturnedPlayerItemAddedEvent)
-          // third sequence when reloading
-          if(_mag_swap.TryGetValue(gun.player.GetNetId(), out KeyValuePair<UnturnedPlayer, byte> pair)) {
-            plugin.SkillUpdaterInstance.SumSkillExp(pair.Key, (float)(plugin.SkillConfigInstance.GetEventUpdate(SkillConfig.ESkillEvent.DEXTERITY_RELOAD_PER_AMMO) * pair.Value), (byte)EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DEXTERITY);
+    IEventListener<PluginOnReloadEvent>,
 
-            _mag_swap.Remove(gun.player.GetNetId());
-          }
-        }
-
-        await UniTask.SwitchToThreadPool();
-      }
-
-      public ReloadWatcher() {
-        UseableGun.OnReloading_Global += _onReloading;
-      }
-
-      ~ReloadWatcher() {
-        UseableGun.OnReloading_Global -= _onReloading;
-      }
-    }
-
-
+    IEventListener<UnturnedPlayerConnectedEvent>,
+    IEventListener<PluginUserRecheckEvent>
+    {
+    // note: there's a reason why shouldn't this be normal sync func
+    //  because it needs to be processed in one thread, even if this
+    //  is a normal sync function, there's a chance that the events
+    //  are processed in different threads
 
 
     private enum ELastState {
       TAKING_ITEM = 0x1, DROPPING_ITEM = 0x2, ITEM_ADDED = 0x4, ITEM_REMOVED = 0x8, ANY = 0xff
     }
 
-    private static readonly TimeSpan min_inventorychangems = new TimeSpan(0, 0, 0, 0, 50);
+    private static readonly System.TimeSpan min_inventorychangems = new System.TimeSpan(0, 0, 0, 0, 50);
     private static Dictionary<ulong, KeyValuePair<ELastState, Stopwatch>> _player_inventorystates = new Dictionary<ulong, KeyValuePair<ELastState, Stopwatch>>();
 
     private static Dictionary<NetId, KeyValuePair<UnturnedPlayer, byte>> _mag_swap = new Dictionary<NetId, KeyValuePair<UnturnedPlayer, byte>>();
+
+    private static Dictionary<ulong, Stopwatch> _lastFish = new Dictionary<ulong, Stopwatch>();
+
+
+    public static event EventHandler<UnturnedPlayer>? OnPlayerFished;
 
     private static void _changeData(ulong key, ELastState state) {
       _player_inventorystates[key] = new KeyValuePair<ELastState, Stopwatch>(state, Stopwatch.StartNew());
     }
 
-    public async Task HandleEventAsync(Object? obj, UnturnedPlayerTakingItemEvent @event) {
+    public async Task HandleEventAsync(System.Object? obj, UnturnedPlayerTakingItemEvent @event) {
       await UniTask.SwitchToMainThread();
       _changeData(@event.Player.SteamId.m_SteamID, ELastState.TAKING_ITEM);
       await UniTask.SwitchToThreadPool();
     }
 
-    public async Task HandleEventAsync(Object? obj, UnturnedPlayerDroppedItemEvent @event) {
+    public async Task HandleEventAsync(System.Object? obj, UnturnedPlayerDroppedItemEvent @event) {
       await UniTask.SwitchToMainThread();
       _changeData(@event.Player.SteamId.m_SteamID, ELastState.DROPPING_ITEM);
       await UniTask.SwitchToThreadPool();
     }
 
-    //
-    public async Task HandleEventAsync(Object? obj, UnturnedPlayerItemAddedEvent @event) {
+    public async Task HandleEventAsync(System.Object? obj, UnturnedPlayerItemAddedEvent @event) {
       await UniTask.SwitchToMainThread();
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       ItemAsset? asset = Assets.find(EAssetType.ITEM, @event.ItemJar.item.id) as ItemAsset;
@@ -107,7 +92,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       await UniTask.SwitchToThreadPool();
     }
 
-    public async Task HandleEventAsync(Object? obj, UnturnedPlayerItemRemovedEvent @event) {
+    public async Task HandleEventAsync(System.Object? obj, UnturnedPlayerItemRemovedEvent @event) {
       await UniTask.SwitchToMainThread();
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       ItemAsset? asset = Assets.find(EAssetType.ITEM, @event.ItemJar.item.id) as ItemAsset;
@@ -129,10 +114,57 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       await UniTask.SwitchToThreadPool();
     }
 
-    public async Task HandleEventAsync(Object? obj, UnturnedPlayerConnectedEvent @event) {
+    public async Task HandleEventAsync(System.Object? obj, UnturnedPlayerItemUpdatedEvent @event) {
       await UniTask.SwitchToMainThread();
-      _changeData(@event.Player.SteamId.m_SteamID, ELastState.ANY);
+
+      SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
+      if(plugin != null) {
+        plugin.PrintToOutput(string.Format("item updated {0}", @event.ItemJar.interactableItem.asset.type));
+        switch(@event.ItemJar.interactableItem.asset.type) {
+          case EItemType.FISHER: {
+            
+          }
+          break;
+        }
+      }
+
       await UniTask.SwitchToThreadPool();
+    }
+
+
+    public async Task HandleEventAsync(System.Object? obj, PluginOnReloadEvent @event) {
+      await UniTask.SwitchToMainThread();
+      SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
+      if(plugin != null && @event.param.HasValue) {
+        plugin.PrintToOutput("reloading gun");
+        plugin.PrintToOutput(@event.param.Value.gun.player.GetNetId().id.ToString());
+        // before: InventoryWatcher (UnturnedPlayerItemAddedEvent)
+        // third sequence when reloading
+        if(_mag_swap.TryGetValue(@event.param.Value.gun.player.GetNetId(), out KeyValuePair<UnturnedPlayer, byte> pair)) {
+          plugin.SkillUpdaterInstance.SumSkillExp(pair.Key, (float)(plugin.SkillConfigInstance.GetEventUpdate(SkillConfig.ESkillEvent.DEXTERITY_RELOAD_PER_AMMO) * pair.Value), (byte)EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DEXTERITY);
+
+          _mag_swap.Remove(@event.param.Value.gun.player.GetNetId());
+        }
+      }
+
+      await UniTask.SwitchToThreadPool();
+    }
+
+
+    public async Task HandleEventAsync(System.Object? obj, UnturnedPlayerConnectedEvent @event) {
+      await UniTask.SwitchToMainThread();
+      SpecialtyOverhaul.Instance?.PrintToOutput("connected");
+      _changeData(@event.Player.SteamId.m_SteamID, ELastState.ANY);
+      SpecialtyOverhaul.Instance?.PrintToOutput("done processing");
+      await UniTask.SwitchToThreadPool();
+    }
+
+    public async Task HandleEventAsync(System.Object? obj, PluginUserRecheckEvent @event) {
+      if(@event.param != null) {
+        await UniTask.SwitchToMainThread();
+        _changeData(@event.param.Value.user.Player.SteamId.m_SteamID, ELastState.ANY);
+        await UniTask.SwitchToThreadPool();
+      }
     }
 
     public static void AddPlayer(UnturnedPlayer player) {

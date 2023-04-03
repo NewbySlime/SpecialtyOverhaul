@@ -44,6 +44,36 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
       }
     };
 
+    public readonly static Dictionary<string, (EPlayerSpeciality, byte)> skill_indexer = new Dictionary<string, (EPlayerSpeciality, byte)>() {
+      // offense specialty
+      {"overkill", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.OVERKILL) },
+      {"sharpshooter", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.SHARPSHOOTER) },
+      {"dexterity", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DEXTERITY) },
+      {"cardio", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.CARDIO) },
+      {"exercise", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.EXERCISE) },
+      {"diving", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DIVING) },
+      {"parkour", (EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.PARKOUR) },
+      
+      // defense specialty
+      {"sneakybeaky", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SNEAKYBEAKY) },
+      {"vitality", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.VITALITY) },
+      {"immunity", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.IMMUNITY) },
+      {"toughness", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.TOUGHNESS) },
+      {"strength", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.STRENGTH) },
+      {"warmblooded", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.WARMBLOODED) },
+      {"survival", (EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SURVIVAL) },
+
+      // support specialty
+      {"healing", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.HEALING) },
+      {"crafting", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.CRAFTING) },
+      {"outdoors", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.OUTDOORS) },
+      {"cooking", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.COOKING) },
+      {"fishing", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.FISHING) },
+      {"agriculture", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.AGRICULTURE) },
+      {"mechanic", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.MECHANIC) },
+      {"engineer", (EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.ENGINEER) }
+    };
+
     /// <summary>
     /// Indexer for parsing data from a string that contains name of the specialty or skill to enums
     /// </summary>
@@ -131,8 +161,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
       {"worker", (byte)EPlayerSkillset.WORK },
       {"chef", (byte)EPlayerSkillset.CHEF },
       {"thief", (byte)EPlayerSkillset.THIEF },
-      {"doctor", (byte)EPlayerSkillset.MEDIC },
-      {"admin", 255 }
+      {"doctor", (byte)EPlayerSkillset.MEDIC }
     };
 
     /// <summary>
@@ -262,6 +291,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         public float[][] _multmult_level = SpecialtyExpData.InitArrayT<float>();
         public float[][] _ondied_edit_level_value = SpecialtyExpData.InitArrayT<float>();
         public EOnDiedEditType[][] _ondied_edit_level_type = SpecialtyExpData.InitArrayT<EOnDiedEditType>();
+        public int[][] _excess_exp_increment = SpecialtyExpData.InitArrayT<int>();
 
         public static void CopyData(ref skillset_updateconfig dst, in skillset_updateconfig src) {
           SpecialtyExpData.CopyArrayT<int>(ref dst._base_level, in src._base_level);
@@ -269,6 +299,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
           SpecialtyExpData.CopyArrayT<float>(ref dst._multmult_level, in src._multmult_level);
           SpecialtyExpData.CopyArrayT<float>(ref dst._ondied_edit_level_value, in src._ondied_edit_level_value);
           SpecialtyExpData.CopyArrayT<EOnDiedEditType>(ref dst._ondied_edit_level_type, in src._ondied_edit_level_type);
+          SpecialtyExpData.CopyArrayT<int>(ref dst._excess_exp_increment, in src._excess_exp_increment);
         }
       }
 
@@ -286,6 +317,10 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
       /// Determines the interval in second of TickTimer 
       /// </summary>
       public float tickinterval = 0.1f;
+
+      public bool player_levelretain = true;
+
+      public int random_boost_cost = 1;
 
       public config_data() {
         for(int i = 0; i < skillupdate_configs.Length; i++) {
@@ -574,6 +609,16 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
       // ondied_edit_level_exp
       _process_configdata_copytoarray_ondied_edit(section.GetSection("ondied_edit_level_exp"), ref skillset_data, create_error);
+
+      // excess_exp_increment
+      if(usedefaultvalue)
+        action_notfound = (byte spec, byte idx) => {
+          skillset_data._excess_exp_increment[spec][idx] = 1;
+        };
+      else
+        action_notfound = null;
+
+      _process_configdata_copytoarray<int>(section.GetSection("excess_exp_increment"), ref skillset_data._excess_exp_increment, false, action_notfound);
     }
 
     /// <summary>
@@ -636,6 +681,10 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <returns>Returns true if the configuration load properly</returns>
     public bool RefreshConfig() {
       try {
+        // players_allow_retain_level
+        float levelRetain = configuration.GetValue<float>("players_allow_retain_level", 0.0f);
+        config_Data.player_levelretain = (int)Math.Round(levelRetain) > 0;
+
         // skillset_config
         _process_configdata_skillsets(configuration.GetSection("skillset_config"));
 
@@ -644,6 +693,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
         // tick_interval
         config_Data.tickinterval = configuration.GetValue<float>("tick_interval", 0.3f);
+
+        config_Data.random_boost_cost = configuration.GetValue<int>("random_boost_cost", 1);
 
         _isConfigLoadProperly = true;
       }
@@ -680,7 +731,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="spec">What specialty</param>
     /// <param name="idx">What skill</param>
     /// <returns></returns>
-    public byte GetStartLevel(Player player, EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
+    public byte GetStartLevel(EPlayerSkillset skillset, EPlayerSpeciality spec, byte idx) {
       return config_Data.skillupdate_configs[(int)skillset]._start_level[(int)spec][idx];
     }
 
@@ -754,6 +805,34 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <returns>Tick interval in seconds</returns>
     public float GetTickInterval() {
       return config_Data.tickinterval;
+    }
+
+    /// <summary>
+    /// Getting players_allow_retain_level value in boolean
+    /// </summary>
+    /// <returns>The value</returns>
+    public bool GetPlayerRetainLevel() {
+      return config_Data.player_levelretain;
+    }
+
+    /// <summary>
+    /// Getting random_boost_cost value
+    /// </summary>
+    /// <returns>The value</returns>
+    public int GetRandomBoostCost() {
+      return config_Data.random_boost_cost;
+    }
+
+    /// <summary>
+    /// Getting excess_exp_increment value for each skillset and skill
+    /// </summary>
+    /// <param name="skillset">Player skillset</param>
+    /// <param name="spec">Current specialty</param>
+    /// <param name="index">Current skill</param>
+    /// <returns>Increment value</returns>
+    public int GetPlayerExcessExpIncrement(EPlayerSkillset skillset, EPlayerSpeciality spec, byte index) {
+      int _ex = config_Data.skillupdate_configs[(byte)skillset]._excess_exp_increment[(int)spec][index];
+      return _ex < 0 ? 0 : _ex;
     }
   }
 }

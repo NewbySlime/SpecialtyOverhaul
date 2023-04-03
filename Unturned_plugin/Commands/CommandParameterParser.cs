@@ -38,7 +38,8 @@ namespace Nekos.SpecialtyPlugin.Commands {
       /// <summary>
       /// Happens when the name of the skill is wrong
       /// </summary>
-      WRONG_SKILLNAME
+      WRONG_SKILLNAME,
+      WRONG_SPECIALTYSKILLNAME
     }
 
 
@@ -51,6 +52,35 @@ namespace Nekos.SpecialtyPlugin.Commands {
       public bool isAllSkill;
 
       public string nextParam;
+    }
+
+
+    private static (int, EPlayerSpeciality?) searchSpecialtyNameConfidence(string name, int currentConfidence = 0) {
+      EPlayerSpeciality? res = null;
+
+      foreach(var spec in SkillConfig.specskill_indexer) {
+        int newConfidence = Misc.NameConfidence(spec.Key, name, currentConfidence);
+        if(newConfidence > currentConfidence) {
+          currentConfidence = newConfidence;
+          res = (EPlayerSpeciality)spec.Value.Key;
+        }
+      }
+
+      return (currentConfidence, res);
+    }
+
+    private static (int, (EPlayerSpeciality, byte)?) searchSkillNameConfidence(string name, int currentConfidence = 0) {
+      (EPlayerSpeciality, byte)? res = null;
+
+      foreach(var skill in SkillConfig.skill_indexer) {
+        int newConfidence = Misc.NameConfidence(skill.Key, name, currentConfidence);
+        if(newConfidence > currentConfidence) {
+          currentConfidence = newConfidence;
+          res = skill.Value;
+        }
+      }
+
+      return (currentConfidence, res);
     }
 
     /// <summary>
@@ -90,22 +120,33 @@ namespace Nekos.SpecialtyPlugin.Commands {
       result = new ParamResult_ToSpecialty();
       result.nextParam = param;
 
-      if(SkillConfig.specskill_indexer.ContainsKey(specparam)) {
-        var _specpair = SkillConfig.specskill_indexer[specparam];
-        result.spec = (EPlayerSpeciality)_specpair.Key;
+      if(skillparam != string.Empty) {
+        var res1 = searchSpecialtyNameConfidence(specparam);
+        if(res1.Item2 == null)
+          throw new ParsingException(ParsingExceptionType.WRONG_SPECIALTYNAME);
 
-        if(skillparam != string.Empty) {
-          if(_specpair.Value.ContainsKey(skillparam)) {
-            result.skillidx = _specpair.Value[skillparam];
-          }
-          else
-            throw new ParsingException(ParsingExceptionType.WRONG_SKILLNAME);
+        var res2 = searchSkillNameConfidence(skillparam);
+        if(res2.Item2 == null)
+          throw new ParsingException(ParsingExceptionType.WRONG_SKILLNAME);
+
+        result.spec = res1.Item2.Value;
+        result.skillidx = res2.Item2.Value.Item2;
+      }
+      else {
+        var res1 = searchSpecialtyNameConfidence(specparam);
+        var res2 = searchSkillNameConfidence(specparam, res1.Item1);
+
+        if(res2.Item1 > res1.Item1 && res2.Item2 != null) {
+          result.spec = res2.Item2.Value.Item1;
+          result.skillidx = res2.Item2.Value.Item2;
+        }
+        else if(res1.Item2 != null) {
+          result.spec = res1.Item2.Value;
+          result.isAllSkill = true;
         }
         else
-          result.isAllSkill = true;
+          throw new ParsingException(ParsingExceptionType.WRONG_SPECIALTYSKILLNAME);
       }
-      else
-        throw new ParsingException(ParsingExceptionType.WRONG_SPECIALTYNAME);
     }
 
     /// <summary>
@@ -141,6 +182,10 @@ namespace Nekos.SpecialtyPlugin.Commands {
 
           case CommandParameterParser.ParsingExceptionType.WRONG_SKILLNAME:
             await currentContext.Actor.PrintMessageAsync("Skill name is invalid.", System.Drawing.Color.Red);
+            break;
+
+          case CommandParameterParser.ParsingExceptionType.WRONG_SPECIALTYSKILLNAME:
+            await currentContext.Actor.PrintMessageAsync("Specialty or skill name is invalid.", System.Drawing.Color.Red);
             break;
         }
 
@@ -181,7 +226,7 @@ namespace Nekos.SpecialtyPlugin.Commands {
     }
 
     /// <summary>
-    /// This parameter is used for commands that use parameter formatting of [id/name]/specialty/skill/level. Then when parsing succeed, the data then passed to callbacks
+    /// This parameter is used for commands that use parameter formatting of <c>[id/name]/specialty/skill/level.</c> Then when parsing succeed, the data then passed to callbacks
     /// </summary>
     /// <param name="plugin">Current plugin</param>
     /// <param name="currentContext">Current command context used by class that handles commands</param>

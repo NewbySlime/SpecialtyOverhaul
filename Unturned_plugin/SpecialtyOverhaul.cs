@@ -51,8 +51,6 @@ namespace Nekos.SpecialtyPlugin {
     private readonly ConfigurationBasedStringLocalizerFactory configurationBasedStringLocalizerFactory;
     private readonly OpenModStringLocalizer openModStringLocalizer;
 
-    private readonly NonAutoloadWatcher nonAutoloadWatcher;
-
     private IDisposable? _configChangeListener;
 
     private TickTimer _tickTimer_onError;
@@ -110,6 +108,7 @@ namespace Nekos.SpecialtyPlugin {
     public event EventHandler<PlayerData>? OnPlayerDied;
     public event EventHandler<PlayerData>? OnPlayerRevived;
     public event EventHandler<PlayerData>? OnPlayerRespawned;
+    public static event EventHandler<UnturnedUser>? OnUserRecheck;
 
     
     /// <summary>
@@ -191,7 +190,6 @@ namespace Nekos.SpecialtyPlugin {
       m_StringLocalizer = stringLocalizer;
       m_Logger = logger;
 
-
       /**
        * In order to get an openmod classes, what you need is to create other classes that contains an interface that you needed.
        * And searching through the documentation to get what you needed, also there's no explanation on how to get those dependencies.
@@ -215,8 +213,6 @@ namespace Nekos.SpecialtyPlugin {
       skillConfig = new SkillConfig(this, m_Configuration);
       skillUpdater = new SkillUpdater(this);
 
-      nonAutoloadWatcher = new NonAutoloadWatcher();
-
       _tickTimer = new TickTimer(0);
 
       // ticking every 3 minutes
@@ -233,14 +229,6 @@ namespace Nekos.SpecialtyPlugin {
 
       try {
         await Task.Run(RefreshConfig);
-
-        var userCollection = userProvider.GetOnlineUsers();
-        foreach (var user in userCollection) {
-          await skillUpdater.LoadExp(user.Player);
-
-          UnturnedUserRecheckEvent userRecheck = new UnturnedUserRecheckEvent(user);
-          await EventBus.EmitAsync(this, this, userRecheck);
-        }
 
         _tickTimer.OnTick += _onTick;
         _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());
@@ -366,9 +354,20 @@ namespace Nekos.SpecialtyPlugin {
     /// For when refreshing/re-reading configuration
     /// </summary>
     public void RefreshConfig() {
+      Task.Run(skillUpdater.SaveAll).Wait();
       if(skillConfig.RefreshConfig()) {
         _stopTickError();
         _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());
+
+        var users = userProvider.GetOnlineUsers();
+        foreach(var user in users) {
+          Task.Run(async () => {
+            await user.PrintMessageAsync("Skill Config is being reloaded.", System.Drawing.Color.Green);
+            if(!skillConfig.GetPlayerRetainLevel())
+              await user.PrintMessageAsync("Retain levels is disabled, some of your levels will be different.", System.Drawing.Color.Yellow);
+          }).Wait();
+          Task.Run(() => skillUpdater.LoadExp(user.Player, skillConfig.GetPlayerRetainLevel())).Wait();
+        }
       }
       else
         _startTickError(string.Format("{0} had problem reading configuration. Contact an admin.", this.ToString()));

@@ -10,6 +10,9 @@
 # Variable for multmult can be more than 1 to create grindy leveling up (increases exponentially)
 # Or multmult can be between 0 - 1 so the need of exp to level up, decreases
 
+# Whether players can retain their level if this config modified
+players_allow_retain_level: 1
+
 # When a skill is updated, it will always be rounded if the number have fraction
 skillset_config:
   # Used on civilian role, also used when other skillsets don't have the parameters supplied in the default
@@ -152,11 +155,6 @@ skillset_config:
       offense.cardio.type: "base"
       defense.strength.value: 0.7
       defense.strength.type: "base"
-      
-
-
-  # For admin skillset parameters (using "All Skillsets")
-  admin:
 
 
 # Parameters to certain events that happened to player
@@ -268,3 +266,5 @@ eventskill_updatesumexp:
 
 # in seconds
 tick_interval: 1
+
+random_boost_cost: 1

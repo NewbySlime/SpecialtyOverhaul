@@ -1,5 +1,6 @@
 ﻿using Cysharp.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using OpenMod.API.Users;
 using OpenMod.Unturned.Players;
 using OpenMod.Unturned.Users;
 using SDG.Unturned;
@@ -7,8 +8,11 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
+using Nekos.SpecialtyPlugin.Watcher;
 
 namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
   /// <summary>
@@ -20,6 +24,11 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
   /// In that function, it recalculates for the new level and adjusting it if the level already maxed out or not
   /// </summary>
   public class SkillUpdater {
+    public class PlayerLevelData {
+      float[][] Levels = SpecialtyExpData.InitArrayT<float>(0.0f);
+    } 
+
+
     /// <summary>
     /// Path of the save file
     /// </summary>
@@ -28,11 +37,15 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     // for savedata, keys needed to be a length of 4 chars
     // I don't know why I decided this, probably just me too scared of being inefficient
     private static string _savedata_speckey = "sp.e";
+    private static string _savedata_speckey_lvl = "sp.l";
     private static string _savedata_skillsetkey = "ss.v";
+    private static string _savedata_excessexp = "ex.e";
 
     // Used for parsing from skill data to readable skill data
     private static int _barlength = 11;
     private static string _bar_onMax = "MAX";
+
+    private static int _boost_len = 5;
 
     private readonly SpecialtyOverhaul plugin;
     private Dictionary<ulong, SpecialtyExpData> playerExp;
@@ -55,13 +68,27 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="skill_idx">What skill</param>
     /// <param name="level">Current level</param>
     /// <returns>Total exp in integer</returns>
-    private int _calculateLevelBorderExp(ref SpecialtyExpData data, EPlayerSpeciality spec, byte skill_idx, byte level) {
+    private int _calculateLevelExp(ref SpecialtyExpData data, EPlayerSpeciality spec, byte skill_idx, float level) {
       SkillConfig skillConfig = plugin.SkillConfigInstance;
       float basef = (float)skillConfig.GetBaseLevelExp(data.skillset, spec, skill_idx);
       float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
       float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
 
-      return (int)Math.Ceiling(basef * Math.Pow(multf * level, multmultf));
+      return (int)Math.Abs(Math.Ceiling(basef * Math.Pow(multf * level, multmultf)));
+    }
+
+    private float _calculateLevelFloat(Player player, ref SpecialtyExpData data, EPlayerSpeciality spec, byte skill_idx) {
+      SkillConfig skillConfig = plugin.SkillConfigInstance;
+      float dataf = data.skillsets_exp[(int)spec][skill_idx];
+      float basef = skillConfig.GetBaseLevelExp(data.skillset, spec, skill_idx);
+
+      if(dataf < basef)
+        return 0;
+
+      float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
+      float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
+
+      return (float)Math.Pow(dataf / basef, 1.0 / multmultf) / multf;
     }
 
     /// <summary>
@@ -73,19 +100,9 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="skill_idx">What skill</param>
     /// <returns>Level in integer</returns>
     private byte _calculateLevel(Player player, ref SpecialtyExpData data, EPlayerSpeciality spec, byte skill_idx) {
-      SkillConfig skillConfig = plugin.SkillConfigInstance;
-      int maxlevel = skillConfig.GetMaxLevel(player, data.skillset, spec, skill_idx);
-      float dataf = (float)data.skillsets_exp[(int)spec][skill_idx];
-      float basef = (float)skillConfig.GetBaseLevelExp(data.skillset, spec, skill_idx);
-
-      if(dataf < basef)
-        return 0;
-
-      float multf = skillConfig.GetMultLevelExp(data.skillset, spec, skill_idx);
-      float multmultf = skillConfig.GetMultMultLevelExp(data.skillset, spec, skill_idx);
-
       // getting fraction of the result
-      float _lvl = (float)Math.Pow(dataf / basef, 1.0 / multmultf) / multf;
+      int maxlevel = plugin.SkillConfigInstance.GetMaxLevel(player, data.skillset, spec, skill_idx);
+      float _lvl = _calculateLevelFloat(player, ref data, spec, skill_idx);
       int nlvl = (int)Math.Floor(_lvl);
       _lvl -= nlvl;
 
@@ -104,25 +121,27 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="playerSkills">Current player's PlayerSkills object</param>
     /// <param name="speciality">What specialty</param>
     /// <param name="index">What index</param>
-    private void _recalculateExpLevel(Player player, ref SpecialtyExpData spc, PlayerSkills playerSkills, byte speciality, byte index) {
-      byte _newlevel = _calculateLevel(player, ref spc, (EPlayerSpeciality)speciality, index);
-      byte _minlevel = plugin.SkillConfigInstance.GetStartLevel(player, spc.skillset, (EPlayerSpeciality)speciality, index);
+    private void _recalculateExpLevel(UnturnedPlayer player, ref SpecialtyExpData spc, PlayerSkills playerSkills, byte speciality, byte index) {
+      byte _newlevel = _calculateLevel(player.Player, ref spc, (EPlayerSpeciality)speciality, index);
+      byte _minlevel = plugin.SkillConfigInstance.GetStartLevel(spc.skillset, (EPlayerSpeciality)speciality, index);
 
       if(_newlevel < _minlevel)
         _newlevel = _minlevel;
 
       playerSkills.ServerSetSkillLevel(speciality, index, _newlevel);
 
-      if(_newlevel < plugin.SkillConfigInstance.GetMaxLevel(player, spc.skillset, (EPlayerSpeciality)speciality, index))
-        spc.skillsets_expborderhigh[speciality][index] = _calculateLevelBorderExp(ref spc, (EPlayerSpeciality)speciality, index, (byte)(_newlevel + 1));
-      else
-        spc.skillsets_expborderhigh[speciality][index] = Int32.MaxValue;
+      int _borderhigh = _calculateLevelExp(ref spc, (EPlayerSpeciality)speciality, index, (byte)(_newlevel + 1));
+      if(_newlevel >= plugin.SkillConfigInstance.GetMaxLevel(player.Player, spc.skillset, (EPlayerSpeciality)speciality, index))
+        _borderhigh *= -1;
 
-      spc.skillsets_expborderlow[speciality][index] = _calculateLevelBorderExp(ref spc, (EPlayerSpeciality)speciality, index, _newlevel);
+      int _borderlow = _calculateLevelExp(ref spc, (EPlayerSpeciality)speciality, index, _newlevel);
+      int _currentexp = spc.skillsets_exp[speciality][index];
 
+      if(_currentexp < _borderlow || _currentexp >= Math.Abs(_borderhigh))
+        spc.skillsets_exp[speciality][index] = _borderlow;
 
-      if(spc.skillsets_exp[speciality][index] < spc.skillsets_expborderlow[speciality][index])
-        spc.skillsets_exp[speciality][index] = spc.skillsets_expborderlow[speciality][index];
+      spc.skillsets_expborderhigh[speciality][index] = _borderhigh;
+      spc.skillsets_expborderlow[speciality][index] = _borderlow;
     }
 
     /// <summary>
@@ -131,8 +150,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="spec">What specialty</param>
     /// <param name="skill_idx">What skill</param>
     /// <returns></returns>
-    private string _getSpecialtyDataKey(EPlayerSpeciality spec, int skill_idx) {
-      return _savedata_speckey + (char)spec + (char)skill_idx;
+    private string _getDataKey(string key, EPlayerSpeciality spec, int skill_idx) {
+      return key + (char)spec + (char)skill_idx;
     }
 
     /// <summary>
@@ -150,7 +169,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// <param name="eventData"></param>
     private async void _OnPlayerConnected(object? obj, SpecialtyOverhaul.PlayerData eventData) {
       player_isDead[eventData.player.SteamId.m_SteamID] = false;
-      await LoadExp(eventData.player);
+      await LoadExp(eventData.player, plugin.SkillConfigInstance.GetPlayerRetainLevel());
     }
 
     /// <summary>
@@ -222,7 +241,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
                 case SkillConfig.EOnDiedEditType.BASE: {
                   byte _level = _calculateLevel(eventData.player.Player, ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill);
-                  int _delta = _calculateLevelBorderExp(ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill, (byte)(_level + 1)) - _calculateLevelBorderExp(ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill, _level);
+                  int _delta = _calculateLevelExp(ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill, (byte)(_level + 1)) - _calculateLevelExp(ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill, _level);
 
                   _currentexp -= _delta;
                 }
@@ -287,37 +306,51 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// Adding experience to a skill
     /// </summary>
     /// <param name="player">Current player object</param>
-    /// <param name="sumexp">Amount of experience</param>
+    /// <param name="sumexp">Amount of experience (can't be negative)</param>
     /// <param name="speciality">What specialty</param>
     /// <param name="index">What skill</param>
     public void SumSkillExp(UnturnedPlayer player, float sumexp, byte speciality, byte index) {
-      if(!plugin.SkillConfigInstance.ConfigLoadProperly)
+      if(!plugin.SkillConfigInstance.ConfigLoadProperly || sumexp < 0)
         return;
-
+      
       try {
         SpecialtyExpData spc = playerExp[player.SteamId.m_SteamID];
-        if(spc.skillsets_expborderhigh[speciality][index] == int.MaxValue)
-          return;
-
         float _fexp = spc.skillsets_exp_fraction[speciality][index] + sumexp;
+
         if(_fexp > 1) {
+          int newexp = spc.skillsets_exp[speciality][index];
+
           int sumexp_int = (int)Math.Floor(_fexp);
           _fexp -= sumexp_int;
-        
-          int newexp = spc.skillsets_exp[speciality][index] + sumexp_int;
-          if(newexp < 0)
-            newexp = 0;
-
-          plugin.PrintToOutput(string.Format("spec: {0}, skill: {1}", ((EPlayerSpeciality)speciality).ToString(), (int)index));
-          plugin.PrintToOutput(string.Format("Level {0}, Exp {1}, MaxExp {2}", player.Player.skills.skills[speciality][index].level, newexp, spc.skillsets_expborderhigh[speciality][index]));
+          newexp += sumexp_int;
 
           if(speciality == (byte)EPlayerSpeciality.SUPPORT && index == (byte)EPlayerSupport.OUTDOORS)
             SumSkillExp(player, sumexp, speciality, (byte)EPlayerSupport.FISHING);
 
-          spc.skillsets_exp[speciality][index] = newexp;
-          if(newexp >= spc.skillsets_expborderhigh[speciality][index] || newexp < spc.skillsets_expborderlow[speciality][index]) {
-            _recalculateExpLevel(player.Player, ref spc, player.Player.skills, speciality, index);
+          if(spc.skillsets_expborderhigh[speciality][index] > 0) {
+            if(newexp >= spc.skillsets_expborderhigh[speciality][index] || newexp < spc.skillsets_expborderlow[speciality][index]) {
+              plugin.PrintToOutput(string.Format("spec: {0}, skill: {1}", ((EPlayerSpeciality)speciality).ToString(), (int)index));
+              plugin.PrintToOutput(string.Format("Level {0}, Exp {1}, MaxExp {2}", player.Player.skills.skills[speciality][index].level, newexp, spc.skillsets_expborderhigh[speciality][index]));
+
+              _recalculateExpLevel(player, ref spc, player.Player.skills, speciality, index);
+            }
           }
+          else {
+            int _highborder = Math.Abs(spc.skillsets_expborderhigh[speciality][index]);
+            int _lowborder = spc.skillsets_expborderlow[speciality][index];
+            if(newexp >= _highborder) {
+              newexp = (newexp - _lowborder) % (_highborder - _lowborder) + _lowborder;
+
+              int incr = plugin.SkillConfigInstance.GetPlayerExcessExpIncrement(spc.skillset, (EPlayerSpeciality)speciality, index);
+              if(incr > 0) {
+                spc.excess_exp += incr;
+
+                player.PrintMessageAsync(string.Format("Excess exp +{0} incremented by maxed out {1}", incr, SkillConfig.specskill_indexer_inverse[(EPlayerSpeciality)speciality].Value[index]), System.Drawing.Color.LightGreen);
+              }
+            }
+          }
+
+          spc.skillsets_exp[speciality][index] = newexp;
         }
 
         spc.skillsets_exp_fraction[speciality][index] = _fexp;
@@ -352,8 +385,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
           newlevel = 0;
       }
 
-      data.skillsets_exp[spec][skill] = _calculateLevelBorderExp(ref data, (EPlayerSpeciality)spec, skill, (byte)newlevel);
-      _recalculateExpLevel(player.Player, ref data, player.Player.skills, spec, skill);
+      data.skillsets_exp[spec][skill] = _calculateLevelExp(ref data, (EPlayerSpeciality)spec, skill, (byte)newlevel);
+      _recalculateExpLevel(player, ref data, player.Player.skills, spec, skill);
     }
 
     /// <summary>
@@ -380,8 +413,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
       plugin.PrintToOutput(string.Format("currentlevel {0}", level));
 
-      data.skillsets_exp[spec][skill] = _calculateLevelBorderExp(ref data, (EPlayerSpeciality)spec, skill, (byte)level);
-      _recalculateExpLevel(player.Player, ref data, player.Player.skills, spec, skill);
+      data.skillsets_exp[spec][skill] = _calculateLevelExp(ref data, (EPlayerSpeciality)spec, skill, (byte)level);
+      _recalculateExpLevel(player, ref data, player.Player.skills, spec, skill);
       plugin.PrintToOutput(string.Format("new exp {0}", data.skillsets_exp[spec][skill]));
     }
 
@@ -390,22 +423,22 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     /// </summary>
     /// <param name="player">Current UnturnedPlayer object</param>
     /// <returns>If load successfully</returns>
-    public async UniTask<bool> LoadExp(UnturnedPlayer player) {
+    public async UniTask<bool> LoadExp(UnturnedPlayer player, bool AllowRetain) {
       plugin.PrintToOutput("Loading exp");
       ulong playerID = player.SteamId.m_SteamID;
       try {
         SpecialtyExpData expData = new SpecialtyExpData();
-
         // if there's a data about the specialty
         plugin.PrintToOutput(string.Format("player id: {0}", player.SteamId.m_SteamID));
         if(PlayerSavedata.fileExists(player.SteamPlayer.playerID, _savedata_path)) {
-          await UniTask.SwitchToMainThread();
           Data userData = PlayerSavedata.readData(player.SteamPlayer.playerID, _savedata_path);
-          await UniTask.SwitchToThreadPool();
+
 
           // getting skillset
           expData.skillset = (EPlayerSkillset)userData.readByte(_getSkillsetDataKey());
 
+          int _retaincount = 0;
+          int _count = 0;
           // getting exp
           for(int i_specs = 0; i_specs < SpecialtyExpData._speciality_count; i_specs++) {
             int skilllen = 0;
@@ -424,16 +457,40 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
             }
 
             for(int i_skill = 0; i_skill < skilllen; i_skill++) {
-              string key = _getSpecialtyDataKey((EPlayerSpeciality)i_specs, i_skill);
-              expData.skillsets_exp[i_specs][i_skill] = userData.readInt32(key);
+              _count++;
+
+              // if player can retain their levels
+              string key = _getDataKey(_savedata_speckey_lvl, (EPlayerSpeciality)i_specs, i_skill);
+              if(AllowRetain && userData.has(key)) {
+                float _lvl = userData.readSingle(key);
+                expData.skillsets_exp[i_specs][i_skill] = _calculateLevelExp(ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill, _lvl);
+
+                _retaincount++;
+              }
+              else {
+                key = _getDataKey(_savedata_speckey, (EPlayerSpeciality)i_specs, i_skill);
+                expData.skillsets_exp[i_specs][i_skill] = userData.readInt32(key);
+              }
             }
           }
+
+          if(AllowRetain && _retaincount != _count) {
+            plugin.PrintToOutput("sending warning to player");
+            await player.PrintMessageAsync("Your level data seems corrupted/edited, some levels will not retain to new configuration.", System.Drawing.Color.Orange);
+            plugin.PrintWarning(string.Format("Player (id: {0}) levels can't be retained to new values.", player.SteamId.m_SteamID));
+          }
+
+          // getting excess data
+          expData.excess_exp = userData.readInt32(_savedata_excessexp, 0);
         }
         else {
           // init skillset
           expData.skillset = EPlayerSkillset.NONE;
 
-          // init specialty
+          // init excessdata
+          expData.excess_exp = 0;
+
+          // init skills
           for(int i_specs = 0; i_specs < SpecialtyExpData._speciality_count; i_specs++) {
             int skilllen = 0;
             switch((EPlayerSpeciality)i_specs) {
@@ -452,6 +509,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
 
             for(int i_skill = 0; i_skill < skilllen; i_skill++) {
               expData.skillsets_exp[i_specs][i_skill] = 0;
+              expData.skillsets_exp_fraction[i_specs][i_skill] = 0;
             }
           }
         }
@@ -479,6 +537,7 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         Data data = new Data();
         SpecialtyExpData expData = playerExp[playerID];
 
+        // saving skillset
         data.writeByte(_getSkillsetDataKey(), (byte)expData.skillset);
 
         for(int i_specs = 0; i_specs < SpecialtyExpData._speciality_count; i_specs++) {
@@ -498,13 +557,21 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
           }
 
           for(int i_skill = 0; i_skill < skilllen; i_skill++) {
-            data.writeInt32(_getSpecialtyDataKey((EPlayerSpeciality)i_specs, i_skill), expData.skillsets_exp[i_specs][i_skill]);
+            // saving player exp in integer
+            data.writeInt32(_getDataKey(_savedata_speckey, (EPlayerSpeciality)i_specs, i_skill), expData.skillsets_exp[i_specs][i_skill]);
+
+
+            // saving player level in float
+            float _lvl = _calculateLevelFloat(player.Player, ref expData, (EPlayerSpeciality)i_specs, (byte)i_skill);
+            data.writeSingle(_getDataKey(_savedata_speckey_lvl, (EPlayerSpeciality)i_specs, i_skill), _lvl);
           }
         }
 
-        await UniTask.SwitchToMainThread();
+        // saving excess exp
+        data.writeInt32(_savedata_excessexp, expData.excess_exp);
+
+
         PlayerSavedata.writeData(player.SteamPlayer.playerID, _savedata_path, data);
-        await UniTask.SwitchToThreadPool();
       }
       catch(Exception e) {
         plugin.PrintToError(string.Format("Something went wrong when saving user file. PlayerID: {0}, Error: {1}", playerID, e.ToString()));
@@ -550,13 +617,13 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
           }
 
           for(byte i_skill = 0; i_skill < skill_len; i_skill++) {
-            _recalculateExpLevel(player.Player, ref data, userSkill, i_spec, i_skill);
+            _recalculateExpLevel(player, ref data, userSkill, i_spec, i_skill);
           }
         }
       }
       catch(KeyNotFoundException) {
         plugin.PrintToError(string.Format("User cannot be found (ID: {0}). Will loading the data.", player.SteamId.m_SteamID));
-        bool res = (await LoadExp(player));
+        bool res = (await LoadExp(player, plugin.SkillConfigInstance.GetPlayerRetainLevel()));
         if(res) {
           await RecalculateSpecialty(player);
         }
@@ -582,34 +649,27 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
         int _lowborder = expData.skillsets_expborderlow[(int)speciality][skill_idx];
         int _highborder = expData.skillsets_expborderhigh[(int)speciality][skill_idx];
 
-        int _currentexp = 0;
-        float _range = 0.0f;
-        int _rangebar = 0;
-
         int barlen = _barlength;
-        if(player.Player.skills.skills[(int)speciality][skill_idx].level >= plugin.SkillConfigInstance.GetBaseLevelExp(expData.skillset, speciality, (byte)skill_idx)) {
-          barlen -= _bar_onMax.Length;
-          _rangebar = barlen;
-          _range = 1.0f;
-        }
-        else {
-          _currentexp = expData.skillsets_exp[(int)speciality][skill_idx];
-          _range = (float)(_currentexp - _lowborder) / (_highborder - _lowborder);
-          _rangebar = (int)Math.Floor(_range * _barlength);
-        }
+
+        int _currentexp = expData.skillsets_exp[(int)speciality][skill_idx];
+        float _range = (float)(_currentexp - _lowborder) / (Math.Abs(_highborder) - _lowborder);
+        int _rangebar = (int)Math.Floor(_range * _barlength);
+
+
+        string _lvlnum = "";
+        if(player.Player.skills.skills[(int)speciality][skill_idx].level >= plugin.SkillConfigInstance.GetMaxLevel(player.Player, expData.skillset, speciality, (byte)skill_idx)) 
+          _lvlnum = "X";
+        else
+          _lvlnum = player.Player.skills.skills[(int)speciality][skill_idx].level.ToString();
 
         string _strbar = "";
         for(int i = 0; i < barlen; i++) {
           if(i < _rangebar)
             _strbar += '=';
           else
-            _strbar += ' ';
+            _strbar += "  ";
         }
-
-        if(barlen < _barlength) {
-          _strbar = _strbar.Insert(_strbar.Length / 2, _bar_onMax);
-        }
-
+        
         string _strname = "";
         if(getskillname || getspecname) {
           var specpair = SkillConfig.specskill_indexer_inverse[speciality];
@@ -620,13 +680,32 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
             _strname = specpair.Key + "." + _strname;
         }
 
-        return new KeyValuePair<string, string>(_strname, string.Format("Lvl {0} [{1}] {2}%", player.Player.skills.skills[(int)speciality][skill_idx].level, _strbar, (_range * 100).ToString("F1")));
+        return new KeyValuePair<string, string>(_strname, string.Format("Lvl {0} [{1}] {2}%", _lvlnum, _strbar, (_range * 100).ToString("F1")));
       }
       catch(Exception e) {
         plugin.PrintToError(string.Format("Something wrong when getting exp data. Error: {0}", e.ToString()));
       }
 
       return new KeyValuePair<string, string>();
+    }
+
+    public bool PurchaseRandomBoost(UnturnedPlayer player) {
+      SpecialtyExpData expData = playerExp[player.SteamId.m_SteamID];
+      int _cost = plugin.SkillConfigInstance.GetRandomBoostCost();
+      if(expData.excess_exp >= _cost) {
+        ExperienceWatcher.DisableWatch(player.SteamId.m_SteamID);
+        player.Player.skills.ServerSetExperience(25);
+        player.Player.skills.ReceiveBoostRequest();
+        expData.excess_exp -= _cost;
+        ExperienceWatcher.EnableWatch(player.SteamId.m_SteamID);
+        return true;
+      }
+
+      return false;
+    }
+
+    public int GetExcessExp(UnturnedPlayer player) {
+      return playerExp[player.SteamId.m_SteamID].excess_exp;
     }
   }
 }

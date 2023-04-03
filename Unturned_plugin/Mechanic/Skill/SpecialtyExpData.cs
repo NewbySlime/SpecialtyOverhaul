@@ -15,6 +15,8 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     public const int _skill_defense_count = (int)EPlayerDefense.SURVIVAL + 1;
     public const int _skill_support_count = (int)EPlayerSupport.ENGINEER + 1;
 
+    public int excess_exp = 0;
+
     // data for checking if the player has leveled up or not
     public int[][] skillsets_expborderhigh = InitArrayT<int>();
     public int[][] skillsets_expborderlow = InitArrayT<int>();
@@ -26,21 +28,31 @@ namespace Nekos.SpecialtyPlugin.Mechanic.Skill {
     public EPlayerSkillset skillset = EPlayerSkillset.NONE;
 
 
+    private static T[] _createArray<T>(int len, T? defvalue = default) {
+      T[] arr = new T[len];
+      if(defvalue != null) {
+        for(int i = 0; i < len; i++)
+          arr[i] = defvalue;
+      }
+
+      return arr;
+    }
+
     /// <summary>
     /// Creating an array by how many specialties and skills
     /// </summary>
     /// <typeparam name="T">The type of the array</typeparam>
     /// <returns>Array of T</returns>
-    public static T[][] InitArrayT<T>() {
+    public static T[][] InitArrayT<T>(T? defvalue = default) {
       return new T[_speciality_count][] {
         // EPlayerspeciality.OFFENSE
-        new T[_skill_offense_count],
+        _createArray<T>(_skill_offense_count, defvalue),
  
         // EPlayerspeciality.DEFENSE
-        new T[_skill_defense_count],
+        _createArray<T>(_skill_defense_count, defvalue),
 
         // EPlayerspeciality.SUPPORT
-        new T[_skill_support_count]
+        _createArray<T>(_skill_support_count, defvalue)
       };
     }
 

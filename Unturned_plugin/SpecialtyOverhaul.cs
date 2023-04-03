@@ -9,22 +9,16 @@ using OpenMod.API.Plugins;
 using OpenMod.Unturned.Users;
 using OpenMod.Unturned.Plugins;
 using SDG.Unturned;
-using Steamworks;
 using OpenMod.Unturned.Players;
 using OpenMod.Core.Users;
 using OpenMod.Core.Persistence;
 using OpenMod.Core.Permissions;
 using OpenMod.Core.Localization;
-using OpenMod.Core.Helpers;
 using Nekos.SpecialtyPlugin.Watcher;
-using System.IO;
-using OpenMod.Core.Eventing;
-using OpenMod.API.Eventing;
 using Nekos.SpecialtyPlugin.CustomEvent;
 using Nekos.SpecialtyPlugin.Mechanic.Skill;
 using Nekos.SpecialtyPlugin.Timer;
 using System.Threading;
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Primitives;
 
 [assembly:PluginMetadata("Nekos.SpecialtyPlugin", DisplayName = "Specialty Overhaul")]
@@ -66,27 +60,37 @@ namespace Nekos.SpecialtyPlugin {
 
     private SkillUpdater skillUpdater;
     public SkillUpdater SkillUpdaterInstance {
-      get { return skillUpdater; }
+      get { 
+        return skillUpdater; 
+      }
     }
 
     private SkillConfig skillConfig;
     public SkillConfig SkillConfigInstance {
-      get { return skillConfig; }
+      get {
+        return skillConfig; 
+      }
     }
 
     private UnturnedUserProvider userProvider;
     public UnturnedUserProvider UnturnedUserProviderInstance {
-      get { return userProvider; }
+      get { 
+        return userProvider; 
+      }
     }
 
     private static SpecialtyOverhaul? _instance = null;
     public static SpecialtyOverhaul? Instance {
-      get { return _instance; }
+      get { 
+        return _instance;
+      }
     }
 
     private TickTimer _tickTimer;
     public TickTimer TickTimerInstance {
-      get { return _tickTimer; }
+      get {
+        return _tickTimer;
+      }
     }
 
     /// <summary>
@@ -171,7 +175,7 @@ namespace Nekos.SpecialtyPlugin {
     /// </summary>
     /// <param name="state">Object that passed from registering callback</param>
     private void _onConfigChanged(Object state) {
-      RefreshConfig();
+      Task.Run(RefreshConfig);
     }
 
     /// <summary>
@@ -209,7 +213,6 @@ namespace Nekos.SpecialtyPlugin {
 
       userProvider = new UnturnedUserProvider(EventBus, openModStringLocalizer, userDataSeeder, userDataStore, Runtime);
 
-
       skillConfig = new SkillConfig(this, m_Configuration);
       skillUpdater = new SkillUpdater(this);
 
@@ -229,6 +232,14 @@ namespace Nekos.SpecialtyPlugin {
 
       try {
         await Task.Run(RefreshConfig);
+
+        var userCollection = userProvider.GetOnlineUsers();
+        foreach (var user in userCollection) {
+          await skillUpdater.LoadExp(user.Player);
+          
+          UnturnedUserRecheckEvent userRecheck = new UnturnedUserRecheckEvent(user);
+          await EventBus.EmitAsync(this, this, userRecheck);
+        }
 
         _tickTimer.OnTick += _onTick;
         _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());
@@ -255,9 +266,9 @@ namespace Nekos.SpecialtyPlugin {
     /// Invoked when the plugin unloading/"deconstruct" itself. Called when openmod restarted or the server shuts down
     /// </summary>
     protected override async UniTask OnUnloadAsync() {
+
       _tickTimer.StopTick();
       _tickTimer.OnTick -= _onTick;
-
       _stopTickError();
       _tickTimer_onError.OnTick -= _onTick_error;
 
@@ -267,6 +278,10 @@ namespace Nekos.SpecialtyPlugin {
       await skillUpdater.SaveAll();
 
       _configChangeListener?.Dispose();
+
+      permissionRolesDataStore.Dispose();
+      userProvider.Dispose();
+      await userDataStore.DisposeAsync();
 
       await UniTask.SwitchToMainThread();
       m_Logger.LogInformation(m_StringLocalizer["plugin_events:plugin_stop"]);

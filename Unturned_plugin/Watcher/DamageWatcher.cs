@@ -14,7 +14,14 @@ using System.Numerics;
 using System.Threading.Tasks;
 
 namespace Nekos.SpecialtyPlugin.Watcher {
-  public class DamageWatcher: IEventListener<UnturnedZombieDamagingEvent>, IEventListener<UnturnedPlayerDamagingEvent>, IEventListener<UnturnedVehicleDamagingTireEvent>, IEventListener<UnturnedAnimalDamagingEvent>, IEventListener<UnturnedResourceDamagingEvent> {
+  public class DamageWatcher:
+    IEventListener<UnturnedZombieDamagingEvent>,
+    IEventListener<UnturnedPlayerDamagingEvent>,
+    IEventListener<UnturnedVehicleDamagingTireEvent>,
+    IEventListener<UnturnedAnimalDamagingEvent>,
+    IEventListener<UnturnedResourceDamagingEvent>
+    {
+
     public static float CalculateDistExp(float base_exp, float dist, float min_dist, float div) {
       if(dist >= min_dist)
         return (dist - min_dist) / div * base_exp;

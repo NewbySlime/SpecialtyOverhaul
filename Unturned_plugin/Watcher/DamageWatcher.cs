@@ -41,21 +41,30 @@ namespace Nekos.SpecialtyPlugin.Watcher {
           await Task.Run(() => {
             bool _usemelee = false;
             if(player.Player.equipment.asset != null) {
-              switch(player.Player.equipment.asset.type) {
-                case EItemType.GUN: {
-                  float dist = Vector3.Distance(player.Transform.Position, zombie.Transform.Position);
-                  SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER_CRIT : SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER;
+              updater.GetModifier_WrapperFunction(
+                plugin.UnturnedUserProviderInstance.GetUser(player.Player),
+                (ISkillModifier editor) => {
+                  switch(player.Player.equipment.asset.type) {
+                    case EItemType.GUN: {
+                      float dist = Vector3.Distance(player.Transform.Position, zombie.Transform.Position);
+                      SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER_CRIT : SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER;
 
-                  // sharpshooter
-                  updater.SumSkillExp(player, CalculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)), (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.SHARPSHOOTER);
-                }
-                break;
+                      // sharpshooter
+                      editor.ExpFractionIncrement(
+                        EPlayerSpeciality.OFFENSE,
+                        (byte)EPlayerOffense.SHARPSHOOTER,
+                        CalculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV))
+                      );
+                    }
+                    break;
 
-                case EItemType.MELEE: {
-                  _usemelee = true;
+                    case EItemType.MELEE: {
+                      _usemelee = true;
+                    }
+                    break;
+                  }
                 }
-                break;
-              }
+              );
             }
             else
               _usemelee = true;
@@ -68,10 +77,16 @@ namespace Nekos.SpecialtyPlugin.Watcher {
               if((int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
                 _expval *= @event.DamageAmount;
 
-              // overkill
-              updater.SumSkillExp(player, _expval, (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.OVERKILL);
+              updater.GetModifier_WrapperFunction(
+                plugin.UnturnedUserProviderInstance.GetUser(player.Player),
+                (ISkillModifier editor) => {
+                  // overkill
+                  editor.ExpFractionIncrement(EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.OVERKILL, _expval);
+                }
+              );
             }
-          });
+          }
+        );
       }
     }
 
@@ -84,34 +99,40 @@ namespace Nekos.SpecialtyPlugin.Watcher {
 
         if(player != null)
           await Task.Run(() => {
-            switch(@event.Cause) {
-              case EDeathCause.GUN: {
-                float dist = Vector3.Distance(player.Transform.Position, @event.Player.Transform.Position);
-                SkillConfig.ESkillEvent eSkillEvent;
-                if(player.PlayerLife.isDead)
-                  eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER_CRIT : SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER;
-                else
-                  eSkillEvent = SkillConfig.ESkillEvent.SHARPSHOOTER_PLAYER_KILLED_GUN;
+            updater.GetModifier_WrapperFunction(
+              plugin.UnturnedUserProviderInstance.GetUser(player.Player),
+              (ISkillModifier editor) => {
+                switch(@event.Cause) {
+                  case EDeathCause.GUN: {
+                    float dist = Vector3.Distance(player.Transform.Position, @event.Player.Transform.Position);
+                    SkillConfig.ESkillEvent eSkillEvent;
+                    if(player.PlayerLife.isDead)
+                      eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER_CRIT : SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_PLAYER;
+                    else
+                      eSkillEvent = SkillConfig.ESkillEvent.SHARPSHOOTER_PLAYER_KILLED_GUN;
 
-                // sharpshooter
-                updater.SumSkillExp(player, CalculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)), (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.SHARPSHOOTER);
+                    // sharpshooter
+                    editor.ExpFractionIncrement(EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.SHARPSHOOTER, CalculateDistExp(config.GetEventUpdate(eSkillEvent), dist, config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_START), config.GetEventUpdate(SkillConfig.ESkillEvent.SHARPSHOOTER_SHOOT_DIST_DIV)));
+                  }
+                  break;
+
+                  case EDeathCause.PUNCH:
+                  case EDeathCause.MELEE: {
+                    SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER;
+
+                    float _expval = config.GetEventUpdate(eSkillEvent);
+                    if((int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
+                      _expval *= @event.DamageAmount;
+
+                    // overkill
+                    editor.ExpFractionIncrement(EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.OVERKILL, _expval);
+                  }
+                  break;
+                }
               }
-              break;
-
-              case EDeathCause.PUNCH:
-              case EDeathCause.MELEE: {
-                SkillConfig.ESkillEvent eSkillEvent = @event.Limb == ELimb.SKULL ? SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER_CRIT : SkillConfig.ESkillEvent.OVERKILL_MELEE_PLAYER;
-
-                float _expval = config.GetEventUpdate(eSkillEvent);
-                if((int)config.GetEventUpdate(SkillConfig.ESkillEvent.OVERKILL_MELEE_DAMAGE_BASED) > 0)
-                  _expval *= @event.DamageAmount;
-
-                // overkill
-                updater.SumSkillExp(player, _expval, (int)EPlayerSpeciality.OFFENSE, (int)EPlayerOffense.OVERKILL);
-              }
-              break;
-            }
-          });
+            );
+          }
+        );
       }
     }
 

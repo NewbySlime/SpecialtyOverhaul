@@ -28,13 +28,13 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     IEventListener<UnturnedPlayerFallDamagingEvent>,
 
     IEventListener<UnturnedPlayerDeathEvent>,
+    IEventListener<UnturnedPlayerSpawnedEvent>,
 
     IEventListener<UnturnedUserDisconnectedEvent>,
     
     IEventListener<PluginUnloadedEvent>,
 
-    IEventListener<PluginUserRecheckEvent>,
-    IEventListener<UnturnedPlayerSpawnedEvent> {
+    IEventListener<PluginUserRecheckEvent> {
 
     private class Byteref {
       public byte data;
@@ -102,7 +102,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
         ValueMaintainer? maintainer = obj as ValueMaintainer;
         if(maintainer != null) {
           maintainer.value += plugin.SkillConfigInstance.GetTickInterval() * plugin.SkillConfigInstance.GetEventUpdate(maintainer.eSkillEvent_persec);
-          plugin.PrintToOutput(string.Format("val {0}", maintainer.value));
+
           int nval = (int)Math.Floor(maintainer.value);
           if(nval > 0) {
             maintainer.value -= nval;
@@ -123,7 +123,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
             plugin.PrintToOutput(string.Format("delta {0}", _delta));
             if(_delta < 0) {
               // diving
-              SkillConfig.ESkillEvent eSkillEvent = @event.Player.Player.stance.isBodyUnderwater ? SkillConfig.ESkillEvent.DIVING_OXYGEM_USE_IFSWIMMING : SkillConfig.ESkillEvent.DIVING_OXYGEN_USE;
+              SkillConfig.ESkillEvent eSkillEvent = @event.Player.Player.stance.isBodyUnderwater ? SkillConfig.ESkillEvent.DIVING_OXYGEN_USE_IFSWIMMING : SkillConfig.ESkillEvent.DIVING_OXYGEN_USE;
               plugin.SkillUpdaterInstance.SumSkillExp(@event.Player, (float)(plugin.SkillConfigInstance.GetEventUpdate(eSkillEvent) * _delta * -1), (byte)EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DIVING);
             }
             else if(_delta > 0) {
@@ -172,6 +172,7 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     public async Task HandleEventAsync(Object? obj, UnturnedPlayerFoodUpdatedEvent @event) {
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       if(plugin != null) {
+        bool _recheck = false;
         Byteref dataref;
         // survival
         if(_survivalValueMaintain.TryGetValue(@event.Player.SteamId.m_SteamID, out dataref)) {
@@ -190,8 +191,10 @@ namespace Nekos.SpecialtyPlugin.Watcher {
             plugin.AddCallbackOnTick(@event.Player.SteamId.m_SteamID, EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SURVIVAL, _onTick_valueMaintainer, maintainer);
           }
         }
-        else
+        else {
           _survivalValueMaintain[@event.Player.SteamId.m_SteamID] = new Byteref { data = 0 };
+          _recheck = true;
+        }
 
         // vitality
         if(_vitalityValueMaintain.TryGetValue(@event.Player.SteamId.m_SteamID, out dataref)) {
@@ -214,14 +217,20 @@ namespace Nekos.SpecialtyPlugin.Watcher {
               dataref.data &= (byte)~_foodflag;
           }
         }
-        else
+        else {
           _vitalityValueMaintain[@event.Player.SteamId.m_SteamID] = new Byteref { data = 0 };
+          _recheck = true;
+        }
+
+        if(_recheck)
+          await HandleEventAsync(obj, @event);
       }
     }
 
     public async Task HandleEventAsync(Object? obj, UnturnedPlayerWaterUpdatedEvent @event) {
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       if(plugin != null) {
+        bool _recheck = false;
         Byteref dataref;
         // survival
         if(_survivalValueMaintain.TryGetValue(@event.Player.SteamId.m_SteamID, out dataref)) {
@@ -240,8 +249,10 @@ namespace Nekos.SpecialtyPlugin.Watcher {
             plugin.AddCallbackOnTick(@event.Player.SteamId.m_SteamID, EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SURVIVAL, _onTick_valueMaintainer, maintainer);
           }
         }
-        else
+        else {
           _survivalValueMaintain[@event.Player.SteamId.m_SteamID] = new Byteref { data = 0 };
+          _recheck = true;
+        }
 
         // vitality
         if(_vitalityValueMaintain.TryGetValue(@event.Player.SteamId.m_SteamID, out dataref)) {
@@ -264,6 +275,13 @@ namespace Nekos.SpecialtyPlugin.Watcher {
             }
           }
         }
+        else {
+          _vitalityValueMaintain[@event.Player.SteamId.m_SteamID] = new Byteref { data = 0 };
+          _recheck = true;
+        }
+
+        if(_recheck)
+          await HandleEventAsync(obj, @event);
       }
     }
 
@@ -328,7 +346,6 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     public async Task HandleEventAsync(Object? obj, UnturnedPlayerTemperatureUpdatedEvent @event) {
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       if(plugin != null) {
-        plugin.PrintToOutput("temperature update");
         if(plugin.OnTickContainsKey(@event.Player.SteamId.m_SteamID, EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.WARMBLOODED)) {
           switch(@event.Temperature) {
             case EPlayerTemperature.WARM:
@@ -396,19 +413,17 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       _stopTickWatch(@event.Player);
     }
 
-    public async Task HandleEventAsync(Object? obj, UnturnedUserDisconnectedEvent @event) {
-      _stopTickWatch(@event.User.Player);
-    }
-
     public async Task HandleEventAsync(Object? obj, UnturnedPlayerSpawnedEvent @event) {
       _addPlayerToWatch(@event.Player);
     }
 
+    public async Task HandleEventAsync(Object? obj, UnturnedUserDisconnectedEvent @event) {
+      _stopTickWatch(@event.User.Player);
+    }
+
     public async Task HandleEventAsync(Object? obj, PluginUserRecheckEvent @event) {
-      SpecialtyOverhaul.Instance?.PrintToOutput("user rechecking");
       if(@event.param.HasValue)
         _addPlayerToWatch(@event.param.Value.user.Player);
-      SpecialtyOverhaul.Instance?.PrintToOutput("done processing");
     }
 
     public async Task HandleEventAsync(Object? obj, PluginUnloadedEvent @event) {

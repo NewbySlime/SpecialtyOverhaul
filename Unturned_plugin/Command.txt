@@ -1,31 +1,21 @@
 List of Commands
 
 
-/spcPlugin_reload_config
-	(Admin only)
-	To reload configuration data, if the config is edited.
-
-
 /GetLevel <specialty>/[skill]
 	To get current level in certain skill. Skill parameter can be omitted to get all skill in certain specialty.
 
 
-/GivePlayerLevel <user name or id>/<specialty>/[skill]/<amount>
+/GiveLevel [user name or id]/<specialty>/[skill]/<amount>
 	(Admin only)
 	To sum player level for certain skill. Skill parameter can be omitted to give all skill in certain specialty. Will be capped if the level goes beyond max.
 
 
-/SetPlayerLevel <user name or id>/<specialty>/[skill]/<amount>
+/SetLevel <user name or id>/<specialty>/[skill]/<amount>
 	(Admin only)
 	To set player level for certain skill. Skill parameter can be omitted to set all skill in certain specialty. Will be capped if the level goes beyond max.
 
 
-/GetPlayerLevel <user name or id>/<specialty>/[skill]
-	(admin only)
-	Same as GetLevel command, but can get other player command.
-
-
-
+Parameters that wrapped with '[]' means that they can be omitted.
 Example for omitting skill name:
 /GetLevel offense
 /GetPlayerLevel nekos/offense

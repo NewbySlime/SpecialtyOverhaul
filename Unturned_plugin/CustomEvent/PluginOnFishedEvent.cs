@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace Nekos.SpecialtyPlugin.CustomEvent {
-  public class PluginOnFishedEvent: PluginInterfaceEvent{
+  public class PluginOnFishedEvent: IPluginEvent{
 
     public struct Param {
       public UnturnedPlayer player;

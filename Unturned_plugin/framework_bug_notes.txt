@@ -1,0 +1,14 @@
+﻿As of OpenMod for Unturned version 3.3.9
+
+About PluginLoadingEvent, from the source code for the OpenModUnityEnginePlugin, the steps of the event is
+  Plugin class construction -> Invoking PluginLoadingEvent -> Calling OnLoadAsync -> Invoking PluginLoadedEvent
+
+I'm certain that PluginLoadingEvent never invoked, using static list (which I'm sure the static list is already instantiated) on IPluginEvent that uses PluginLoadingEvent with each event invoked, the list will be larger. But after checking the List in OnLoadAsync, it never expanded, the member count stays zero.
+
+The workaround for this is to load stuff that uses custom event after OnLoadAsync, since using PluginLoadedEvent works as intended. And with the priority after IPluginAutoload (normal).
+
+For IPluginEvent, uses PluginLoadedEvent with highest priority, that way, the custom events will subscribe to certain events first.
+
+For IPluginAutoload, same as IPluginEvent, but with high priority, after IPluginEvent.
+
+For PluginUnloadingEvent, the same. I don't know if PluginUnloadedEvent is working or not, but what I know is that, all static members will be re-instantiate when OpenMod is reloading.

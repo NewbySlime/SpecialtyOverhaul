@@ -1,8 +1,9 @@
 ﻿using System;
 using OpenMod.Unturned.Users;
 
-namespace Nekos.SpecialtyPlugin.CustomEvent {
-  public class PluginUserRecheckEvent: PluginInterfaceEvent {
+namespace Nekos.SpecialtyPlugin.CustomEvent
+{
+    public class PluginUserRecheckEvent: IPluginEvent {
     public struct Param {
       public UnturnedUser user;
     }

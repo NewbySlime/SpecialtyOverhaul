@@ -20,17 +20,20 @@ using Nekos.SpecialtyPlugin.Mechanic.Skill;
 using Nekos.SpecialtyPlugin.Timer;
 using System.Threading;
 using Microsoft.Extensions.Primitives;
+using Nekos.SpecialtyPlugin.Persistance;
+using Nekos.SpecialtyPlugin.Binding;
+using Newtonsoft.Json.Bson;
 
 [assembly:PluginMetadata("Nekos.SpecialtyPlugin", DisplayName = "Specialty Overhaul")]
 namespace Nekos.SpecialtyPlugin {
   /// <summary>
   /// The main plugin class
   /// </summary>
-  public class SpecialtyOverhaul : OpenModUnturnedPlugin {
+  public partial class SpecialtyOverhaul : OpenModUnturnedPlugin {
     /// <summary>
     /// This mutex is used to make editing _tickCallbacks thread-safe
     /// </summary>
-    private static Mutex _tickMutex = new Mutex();
+    private readonly static Mutex _tickMutex = new Mutex();
 
     private readonly IConfiguration m_Configuration;
     private readonly IStringLocalizer m_StringLocalizer;
@@ -46,9 +49,14 @@ namespace Nekos.SpecialtyPlugin {
     private readonly OpenModStringLocalizer openModStringLocalizer;
 
     private IDisposable? _configChangeListener;
+    private bool _configAutoloadEnable = true;
+
+    private TickTimer _tickTimer_autosave;
 
     private TickTimer _tickTimer_onError;
     private string _tickTimer_onError_msg = "";
+
+    private readonly Binder _binder = new();
 
 
     /// <summary>
@@ -58,21 +66,21 @@ namespace Nekos.SpecialtyPlugin {
 
     private Dictionary<ulong, UnturnedPlayer> _players = new Dictionary<ulong, UnturnedPlayer>();
 
-    private SkillUpdater skillUpdater;
+    private readonly SkillUpdater skillUpdater;
     public SkillUpdater SkillUpdaterInstance {
       get { 
         return skillUpdater; 
       }
     }
 
-    private SkillConfig skillConfig;
+    private readonly SkillConfig skillConfig;
     public SkillConfig SkillConfigInstance {
       get {
         return skillConfig; 
       }
     }
 
-    private UnturnedUserProvider userProvider;
+    private readonly UnturnedUserProvider userProvider;
     public UnturnedUserProvider UnturnedUserProviderInstance {
       get { 
         return userProvider; 
@@ -106,13 +114,9 @@ namespace Nekos.SpecialtyPlugin {
     }
 
     
-    // events that this class needed
-    public event EventHandler<PlayerData>? OnPlayerConnected;
-    public event EventHandler<PlayerData>? OnPlayerDisconnected;
-    public event EventHandler<PlayerData>? OnPlayerDied;
-    public event EventHandler<PlayerData>? OnPlayerRevived;
-    public event EventHandler<PlayerData>? OnPlayerRespawned;
     public static event EventHandler<UnturnedUser>? OnUserRecheck;
+    public static event EventHandler? OnAutoloadDoLoad;
+    public static event EventHandler? OnAutoloadDoUnload;
 
     
     /// <summary>
@@ -154,6 +158,11 @@ namespace Nekos.SpecialtyPlugin {
         await user.PrintMessageAsync(_tickTimer_onError_msg, System.Drawing.Color.OrangeRed);
     }
 
+    private async void _onTick_autosave(Object? obj, System.EventArgs eventArgs) {
+      await Task.Run(SkillPersistancePool.SaveAllSkillPersistance);
+      PrintToOutput("Autosaved.");
+    }
+
     /// <summary>
     /// Starting TickTimer to notify error to server
     /// </summary>
@@ -175,7 +184,10 @@ namespace Nekos.SpecialtyPlugin {
     /// </summary>
     /// <param name="state">Object that passed from registering callback</param>
     private void _onConfigChanged(Object state) {
-      Task.Run(RefreshConfig);
+      if(_configAutoloadEnable)
+        RefreshConfig();
+      else
+        PrintWarning("Config autoload is disabled, do refresh the config or enable autoload.");
     }
 
     /// <summary>
@@ -186,6 +198,39 @@ namespace Nekos.SpecialtyPlugin {
     /// <returns>Keys from combining EPlayerSpecialty enum and skill index</returns>
     private ushort _toUshort(EPlayerSpeciality spec, byte idx) {
       return (ushort)(((byte)spec << 8) | idx);
+    }
+
+    private async Task _loadPlugin() {
+      _tickTimer_onError.OnTick += _onTick_error;
+
+      try {
+        await Task.Run(() => RefreshConfig(true));
+
+        _tickTimer.OnTick += _onTick;
+        _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());
+        _tickTimer.StartTick();
+
+        _tickTimer.OnTick += _onTick_error;
+
+        _tickTimer_autosave.OnTick += _onTick_autosave;
+        _tickTimer_autosave.StartTick();
+
+        _configChangeListener = ChangeToken.OnChange(() => m_Configuration.GetReloadToken(), _onConfigChanged, this);
+
+        await UniTask.SwitchToMainThread();
+        m_Logger.LogInformation(m_StringLocalizer["plugin_events:plugin_start"]);
+        await UniTask.SwitchToThreadPool();
+      }
+      catch(Exception ex) {
+        _instance = null;
+
+        PrintToError("Something wrong happened.");
+        PrintToError(ex.ToString());
+        PrintToError("");
+        PrintToError("Please contact dev with server logs attached.");
+
+        _startTickError(string.Format("{0} had problem loading up. Contact an admin.", this.ToString()));
+      }
     }
 
 
@@ -213,10 +258,13 @@ namespace Nekos.SpecialtyPlugin {
 
       userProvider = new UnturnedUserProvider(EventBus, openModStringLocalizer, userDataSeeder, userDataStore, Runtime);
 
+      _instance = this;
+
       skillConfig = new SkillConfig(this, m_Configuration);
       skillUpdater = new SkillUpdater(this);
 
-      _tickTimer = new TickTimer(0);
+      _tickTimer = new TickTimer(1);
+      _tickTimer_autosave = new TickTimer(180);
 
       // ticking every 3 minutes
       _tickTimer_onError = new TickTimer(180);
@@ -227,34 +275,8 @@ namespace Nekos.SpecialtyPlugin {
     /// Invoked when the plugin needs to be loaded/initialized
     /// </summary>
     protected override async UniTask OnLoadAsync() {
-      _instance = this;
-      _tickTimer_onError.OnTick += _onTick_error;
-
-      try {
-        await Task.Run(RefreshConfig);
-
-        var userCollection = userProvider.GetOnlineUsers();
-        foreach (var user in userCollection) 
-          OnUserRecheck?.Invoke(this, user);
-
-        _tickTimer.OnTick += _onTick;
-        _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());
-        _tickTimer.StartTick();
-
-        _configChangeListener = ChangeToken.OnChange(() => m_Configuration.GetReloadToken(), _onConfigChanged, this);
-
-        await UniTask.SwitchToMainThread();
-        m_Logger.LogInformation(m_StringLocalizer["plugin_events:plugin_start"]);
-        await UniTask.SwitchToThreadPool();
-      }
-      catch(Exception ex) {
-        PrintToError("Something wrong happened.");
-        PrintToError(ex.ToString());
-        PrintToError("");
-        PrintToError("Please contact dev with server logs attached.");
-
-        _startTickError(string.Format("{0} had problem loading up. Contact an admin.", this.ToString()));
-      }
+      // moved to _loadPlugin and handled by StaticEventHandler
+      // look at framework_bug_notes.txt
     }
 
 
@@ -262,16 +284,20 @@ namespace Nekos.SpecialtyPlugin {
     /// Invoked when the plugin unloading/"deconstruct" itself. Called when openmod restarted or the server shuts down
     /// </summary>
     protected override async UniTask OnUnloadAsync() {
+      OnAutoloadDoUnload?.Invoke(this, EventArgs.Empty);
 
       _tickTimer.StopTick();
       _tickTimer.OnTick -= _onTick;
+
       _stopTickError();
       _tickTimer_onError.OnTick -= _onTick_error;
 
+      _tickTimer_autosave.StopTick();
+      _tickTimer_autosave.OnTick -= _onTick_autosave;
+
       _tickCallbacks.Clear();
 
-      _instance = null;
-      await skillUpdater.SaveAll();
+      SkillPersistancePool.SaveAllSkillPersistance();
 
       _configChangeListener?.Dispose();
 
@@ -282,6 +308,7 @@ namespace Nekos.SpecialtyPlugin {
       await UniTask.SwitchToMainThread();
       m_Logger.LogInformation(m_StringLocalizer["plugin_events:plugin_stop"]);
       await UniTask.SwitchToThreadPool();
+      _instance = null;
     }
 
 
@@ -321,67 +348,41 @@ namespace Nekos.SpecialtyPlugin {
       await UniTask.SwitchToThreadPool();
     }
 
-    /// <summary>
-    /// Calling event when a player connects
-    /// </summary>
-    /// <param name="playerData">Parameter for the event</param>
-    public void CallEvent_OnPlayerConnected(PlayerData playerData) {
-      OnPlayerConnected?.Invoke(this, playerData);
-    }
+    private void RefreshConfig(bool pluginInit) {
+      if(!pluginInit)
+        SkillPersistancePool.SaveAllSkillPersistance();
 
-    /// <summary>
-    /// Calling event when a player disconnects
-    /// </summary>
-    /// <param name="playerData">Parameter for the event</param>
-    public void CallEvent_OnPlayerDisconnected(PlayerData playerData) {
-      OnPlayerDisconnected?.Invoke(this, playerData);
-    }
-
-    /// <summary>
-    /// Calling event when a player respawning
-    /// </summary>
-    /// <param name="playerData">Parameter for the event</param>
-    public void CallEvent_OnPlayerRespawned(PlayerData playerData) {
-      OnPlayerRespawned?.Invoke(this, playerData);
-    }
-
-    /// <summary>
-    /// Calling event when a player dies
-    /// </summary>
-    /// <param name="playerData">Parameter for the event</param>
-    public void CallEvent_OnPlayerDied(PlayerData playerData) {
-      OnPlayerDied?.Invoke(this, playerData);
-    }
-
-    /// <summary>
-    /// Calling event when a player revived by other player
-    /// </summary>
-    /// <param name="playerData">Parameter for the event</param>
-    public void CallEvent_OnPlayerRevived(PlayerData playerData) {
-      OnPlayerRevived?.Invoke(this, playerData);
-    }
-
-    /// <summary>
-    /// For when refreshing/re-reading configuration
-    /// </summary>
-    public void RefreshConfig() {
-      Task.Run(skillUpdater.SaveAll).Wait();
       if(skillConfig.RefreshConfig()) {
         _stopTickError();
         _tickTimer.ChangeTickInterval(skillConfig.GetTickInterval());
+
+        _tickTimer_autosave.ChangeTickInterval(skillConfig.GetAutosaveInterval());
 
         var users = userProvider.GetOnlineUsers();
         foreach(var user in users) {
           Task.Run(async () => {
             await user.PrintMessageAsync("Skill Config is being reloaded.", System.Drawing.Color.Green);
             if(!skillConfig.GetPlayerRetainLevel())
-              await user.PrintMessageAsync("Retain levels is disabled, some of your levels will be different.", System.Drawing.Color.Yellow);
+              await user.PrintMessageAsync("Retain levels is disabled, some of your levels might be different.", System.Drawing.Color.Yellow);
           }).Wait();
-          Task.Run(() => skillUpdater.LoadExp(user.Player, skillConfig.GetPlayerRetainLevel())).Wait();
+
+          SkillPersistancePool.GetSkillPersistance_WrapperFunction(user.Player.SteamPlayer.playerID, _binder, (ISkillPersistance persistance) => {
+            persistance.Reload();
+          });
+
+          OnUserRecheck?.Invoke(this, user);
         }
       }
-      else
-        _startTickError(string.Format("{0} had problem reading configuration. Contact an admin.", this.ToString()));
+      else 
+        PrintToError("Plugin had problem when reading configuration. Config will be reverted to previous config.");
+    }
+
+    /// <summary>
+    /// For when refreshing/re-reading configuration
+    /// </summary>
+    /// <param name="pluginInit">If plugin calling this command starting</param>
+    public void RefreshConfig() {
+      RefreshConfig(false);
     }
 
     /// <summary>
@@ -425,6 +426,11 @@ namespace Nekos.SpecialtyPlugin {
     public bool OnTickContainsKey(ulong playerID, EPlayerSpeciality spec, byte idx) {
       KeyValuePair<ulong, ushort> key = new KeyValuePair<ulong, ushort>(playerID, _toUshort(spec, idx));
       return _tickCallbacks.ContainsKey(key);
+    }
+
+    public bool SetEnable_ConfigAutoload() {
+      _configAutoloadEnable = !_configAutoloadEnable;
+      return _configAutoloadEnable;
     }
   }
 }

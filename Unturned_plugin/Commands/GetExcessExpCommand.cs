@@ -1,5 +1,6 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using Nekos.SpecialtyPlugin.Mechanic.Skill;
 using OpenMod.Core.Commands;
 using OpenMod.Unturned.Commands;
 using OpenMod.Unturned.Users;
@@ -18,8 +19,11 @@ namespace Nekos.SpecialtyPlugin.Commands {
 
     protected override async UniTask OnExecuteAsync() {
       UnturnedUser? user = Context.Actor as UnturnedUser;
-      if(user != null)
-        await user.PrintMessageAsync(string.Format("Excess exp: {0}", plugin.SkillUpdaterInstance.GetExcessExp(user.Player)), System.Drawing.Color.YellowGreen);
+      if(user != null) {
+        await plugin.SkillUpdaterInstance.GetModifier_WrapperFunction(user, async (ISkillModifier editor) => {
+          await user.PrintMessageAsync(string.Format("Excess exp: {0}", editor.ExcessExp), System.Drawing.Color.YellowGreen);
+        });
+      }
     }
   }
 }

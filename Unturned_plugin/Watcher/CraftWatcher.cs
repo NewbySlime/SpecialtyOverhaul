@@ -19,63 +19,68 @@ namespace Nekos.SpecialtyPlugin.Watcher {
 
           ItemAsset? asset = Assets.find(EAssetType.ITEM, @event.ItemId) as ItemAsset;
           if(asset != null) {
-            switch(asset.type) {
-              case EItemType.MAGAZINE:
-              case EItemType.SUPPLY:
-                break;
+            skillUpdater.GetModifier_WrapperFunction(
+              plugin.UnturnedUserProviderInstance.GetUser(@event.Player.Player),
+              (ISkillModifier editor) => {
+                switch(asset.type) {
+                  case EItemType.MAGAZINE:
+                  case EItemType.SUPPLY:
+                    break;
 
-              case EItemType.FOOD:
-                // cooking
-                skillUpdater.SumSkillExp(@event.Player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.COOKING_ON_COOK), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.COOKING);
+                  case EItemType.FOOD:
+                    // cooking
+                    editor.ExpFractionIncrement(EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.COOKING, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.COOKING_ON_COOK));
 
-                break;
+                    break;
 
-              case EItemType.GUN:
-              case EItemType.SIGHT:
-              case EItemType.BARREL:
-              case EItemType.TACTICAL:
-              case EItemType.THROWABLE:
-              case EItemType.TOOL:
-              case EItemType.OPTIC:
-              case EItemType.TRAP:
-              case EItemType.GENERATOR:
-              case EItemType.FISHER:
-              case EItemType.BEACON:
-              case EItemType.TANK:
-              case EItemType.CHARGE:
-              case EItemType.SENTRY:
-              case EItemType.DETONATOR:
-              case EItemType.FILTER:
-              case EItemType.VEHICLE_REPAIR_TOOL:
-              case EItemType.OIL_PUMP:
-              case EItemType.COMPASS:
-                // engineer
-                skillUpdater.SumSkillExp(@event.Player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.ENGINEER_CRAFTING), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.ENGINEER);
+                  case EItemType.GUN:
+                  case EItemType.SIGHT:
+                  case EItemType.BARREL:
+                  case EItemType.TACTICAL:
+                  case EItemType.THROWABLE:
+                  case EItemType.TOOL:
+                  case EItemType.OPTIC:
+                  case EItemType.TRAP:
+                  case EItemType.GENERATOR:
+                  case EItemType.FISHER:
+                  case EItemType.BEACON:
+                  case EItemType.TANK:
+                  case EItemType.CHARGE:
+                  case EItemType.SENTRY:
+                  case EItemType.DETONATOR:
+                  case EItemType.FILTER:
+                  case EItemType.VEHICLE_REPAIR_TOOL:
+                  case EItemType.OIL_PUMP:
+                  case EItemType.COMPASS:
+                    // engineer
+                    editor.ExpFractionIncrement(EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.ENGINEER, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.ENGINEER_CRAFTING));
 
-                goto default;
+                    goto default;
 
-              case EItemType.FARM:
-              case EItemType.GROWER:
-                // agriculture
-                skillUpdater.SumSkillExp(@event.Player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.AGRICULTURE_CRAFTING), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.AGRICULTURE);
+                  case EItemType.FARM:
+                  case EItemType.GROWER:
+                    // agriculture
+                    editor.ExpFractionIncrement(EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.AGRICULTURE, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.AGRICULTURE_CRAFTING));
 
-                goto default;
+                    goto default;
 
-              case EItemType.MEDICAL:
-                // healing
-                skillUpdater.SumSkillExp(@event.Player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.HEALING_CRAFTING), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.HEALING);
+                  case EItemType.MEDICAL:
+                    // healing
+                    editor.ExpFractionIncrement(EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.HEALING, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.HEALING_CRAFTING));
 
-                goto default;
+                    goto default;
 
-              default:
-                // crafting
-                skillUpdater.SumSkillExp(@event.Player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.CRAFTING_ON_CRAFT), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.CRAFTING);
+                  default:
+                    // crafting
+                    editor.ExpFractionIncrement(EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.CRAFTING, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.CRAFTING_ON_CRAFT));
 
-                // dexterity
-                skillUpdater.SumSkillExp(@event.Player, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.DEXTERITY_CRAFTING), (byte)EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DEXTERITY);
+                    // dexterity
+                    editor.ExpFractionIncrement(EPlayerSpeciality.OFFENSE, (byte)EPlayerOffense.DEXTERITY, skillConfig.GetEventUpdate(SkillConfig.ESkillEvent.DEXTERITY_CRAFTING));
 
-                break;
-            }
+                    break;
+                }
+              }
+            );
           }
         });
     }

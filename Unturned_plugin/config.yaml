@@ -11,11 +11,16 @@
 # Or multmult can be between 0 - 1 so the need of exp to level up, decreases
 
 # Whether players can retain their level if this config modified
+# default value: 1
 players_allow_retain_level: 1
 
 # When a skill is updated, it will always be rounded if the number have fraction
 skillset_config:
   # Used on civilian role, also used when other skillsets don't have the parameters supplied in the default
+  #
+  # A Note for some parameter;
+  #   - skillset_requirement will be ignored in this skillset (of course)
+  #   - demote_player_on_level_reduced will still be read but only used for a standard for all skillsets
   default:
     start_level:
       # NOTE: players can't cook if the skill still in level 0
@@ -156,6 +161,42 @@ skillset_config:
       defense.strength.value: 0.7
       defense.strength.type: "base"
 
+    skillset_requirements:
+
+    demote_player_on_level_reduced: 1
+      
+
+
+# These values are for multiplying exp gained when a player is in certain environment.
+# These values will also be used when player dead.
+#
+# Parameter NOTE:
+#   For 'underwater', it occured when player is swimming, not when the player is submerged.
+#
+# NOTE: this parameter can be omitted, as the default value will be 1.0
+environment_exp_multiplier:
+  normal:
+    defense.strength.loss: 1.0  
+
+  deadzone:
+    offense.overkill.gain: 2.0
+
+
+# These values are not the same as normally find on skillset_config, thus not overwriting it. These values are
+# multipliers towards a certain skill for ondied_edit_level_exp.
+#
+# For example, died caused by zombie will have a parameter offense.overkill of 1.5, if the ondied_edit_level_exp
+# for the player's skillset is 0.8, then the end value is 1.5 x 0.8 which results 1.2.
+#
+# For ondied_edit_level_exp, for 'mult', it will divide instead of multiplied.
+#
+# NOTE: this parameter can be omitted, as the default value will be 1.0
+death_cause_multiplier:
+  zombie:
+    defense.strength: 
+
+  player:
+
 
 # Parameters to certain events that happened to player
 # Notes:
@@ -192,8 +233,10 @@ eventskill_updatesumexp:
   overkill_zombie_killed_melee: 5
 
   # If true, then reloading while previous mag isn't empty still counts
-  dexterity_reload_allow_notempty_mags: 0
   dexterity_reload_per_ammo: 0.7
+  dexterity_reload_mult_constant: 0
+  dexterity_reload_adaptable_cooldown: 1
+  dexterity_reload_maxammo_per_minute: 250
   dexterity_crafting: 3
   # The repairing value is a multiplier to amount of health repaired
   dexterity_repairing_vehicle: 3.5
@@ -220,7 +263,7 @@ eventskill_updatesumexp:
 
   immunity_virus_increase_mult: 0.1
   immunity_virus_decrease_mult: 0.1
-  immunity_mainatain_virus_below: 30
+  immunity_maintain_virus_below: 30
   immunity_increase_persec_mult: 0.1
 
   toughness_health_decrease_mult: 0.20
@@ -263,8 +306,24 @@ eventskill_updatesumexp:
   engineer_crafting: 1
 
 
+# this will allow player to change skillset after they change to something other than civilian role.
+# basically, a player with police officer role can change to other skillset with other than police officer role.
+# default value: 0
+allow_change_skillset_after_change: 0
+
+# if player changed their role, if their level maxed out for firefighter role but too much for chef role, the level will be reduced to fit the chef role.
+# for example, player's stamina level is 7 and when they change to chef, which has max level of 5, their stamina level will be reduced to 5
+# default value: 1
+recheck_level_if_skillset_changed: 1
+
 
 # in seconds
+# default value: 0.3
 tick_interval: 1
 
+# in seconds
+# default value: 180
+autosave_interval: 180
+
+# default value: 3
 random_boost_cost: 1

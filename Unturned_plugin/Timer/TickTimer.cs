@@ -9,9 +9,7 @@ namespace Nekos.SpecialtyPlugin.Timer {
   /// This class use looped timer to generate ticks, or in another term, always updating for each interval time
   /// </summary>
   public class TickTimer {
-    private Task? _tickTask;
-    private bool _keepTick = false;
-    private float _tickInterval;
+    private System.Timers.Timer _timer;
 
     /// <summary>
     /// Event that invoked when a tick happens
@@ -22,17 +20,15 @@ namespace Nekos.SpecialtyPlugin.Timer {
     /// A function that handles each ticks <br/>
     /// NOTE: should run on seperate Task
     /// </summary>
-    private async void _tickHandler() {
-      while(_keepTick) {
-        Task _timerTask = Task.Delay((int)(_tickInterval * 1000));
-        OnTick?.Invoke(this, EventArgs.Empty);
-        await _timerTask;
-      }
+    private void _tickHandler(object source, EventArgs e) {
+      OnTick?.Invoke(this, e);
     }
 
     /// <param name="tickIntervalS">Interval time in seconds</param>
     public TickTimer(float tickIntervalS) {
-      _tickInterval = tickIntervalS;
+      _timer = new(tickIntervalS*1000);
+      _timer.AutoReset = true;
+      _timer.Elapsed += _tickHandler;
     }
 
     ~TickTimer() {
@@ -44,21 +40,17 @@ namespace Nekos.SpecialtyPlugin.Timer {
     /// </summary>
     /// <param name="tickIntervalS">Interval time in seconds</param>
     public void ChangeTickInterval(float tickIntervalS) {
-      _tickInterval = tickIntervalS;
+      _timer.Stop();
+      _timer.Interval = tickIntervalS * 1000;
+      _timer.Start();
     }
 
     public void StartTick() {
-      _keepTick = true;
-      _tickTask = Task.Run(_tickHandler);
+      _timer.Start();
     }
 
     public void StopTick() {
-      _keepTick = false;
-      if(_tickTask != null) {
-        _tickTask.Wait();
-        _tickTask.Dispose();
-        _tickTask = null;
-      }
+      _timer.Stop();
     }
   }
 }

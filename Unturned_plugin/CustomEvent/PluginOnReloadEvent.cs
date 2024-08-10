@@ -5,8 +5,9 @@ using OpenMod.Core.Plugins.Events;
 using OpenMod.Unturned.Players;
 using SDG.Unturned;
 
-namespace Nekos.SpecialtyPlugin.CustomEvent {
-  public class PluginOnReloadEvent: PluginInterfaceEvent{
+namespace Nekos.SpecialtyPlugin.CustomEvent
+{
+    public class PluginOnReloadEvent: IPluginEvent{
     public struct Param {
       public UseableGun gun;
     }

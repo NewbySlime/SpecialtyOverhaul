@@ -6,8 +6,9 @@ using OpenMod.Core.Plugins.Events;
 using OpenMod.Unturned.Players;
 using SDG.Unturned;
 
-namespace Nekos.SpecialtyPlugin.CustomEvent {
-  public class PluginOnFarmEvent: PluginInterfaceEvent, ICancellableEvent{
+namespace Nekos.SpecialtyPlugin.CustomEvent
+{
+  public class PluginOnFarmEvent: IPluginEvent, ICancellableEvent{
     public struct Param {
       public InteractableFarm farm;
       public SteamPlayer player;
@@ -24,11 +25,15 @@ namespace Nekos.SpecialtyPlugin.CustomEvent {
           param = new Param {
             player = splayer,
             farm = farm,
-          }
+          },
+
+          IsCancelled = false
         };
 
         plugin.EventBus.EmitAsync(plugin, null, @event).Wait();
-        cancelled = @event.IsCancelled;
+        if(@event.IsCancelled) {
+          cancelled = true;
+        }
       }
     }
 

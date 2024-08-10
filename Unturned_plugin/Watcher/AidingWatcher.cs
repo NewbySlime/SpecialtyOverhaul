@@ -10,11 +10,20 @@ namespace Nekos.SpecialtyPlugin.Watcher {
     public async Task HandleEventAsync(Object? obj, UnturnedPlayerPerformingAidEvent @event) {
       SpecialtyOverhaul? plugin = SpecialtyOverhaul.Instance;
       if(plugin != null) {
-        // to prevent leveling up by get aided by someone
-        PlayerStatusWatcher.AddIsAided(@event.Target.SteamId.m_SteamID);
+        plugin.SkillUpdaterInstance.GetModifier_WrapperFunction(
+          plugin.UnturnedUserProviderInstance.GetUser(@event.Player.Player),
+          (ISkillModifier editor) => {
+            // to prevent leveling up by get aided by someone
+            PlayerStatusWatcher.AddIsAided(@event.Target.SteamId.m_SteamID);
 
-        // healing
-        plugin.SkillUpdaterInstance.SumSkillExp(@event.Player, plugin.SkillConfigInstance.GetEventUpdate(SkillConfig.ESkillEvent.HEALING_ON_AIDING), (byte)EPlayerSpeciality.SUPPORT, (byte)EPlayerSupport.HEALING);
+            // healing
+            editor.ExpFractionIncrement(
+              EPlayerSpeciality.SUPPORT,
+              (byte)EPlayerSupport.HEALING, 
+              plugin.SkillConfigInstance.GetEventUpdate(SkillConfig.ESkillEvent.HEALING_ON_AIDING)
+            );
+          }
+        );
       }
     }
   }

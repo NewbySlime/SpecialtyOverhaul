@@ -37,8 +37,13 @@ namespace Nekos.SpecialtyPlugin.Watcher {
         await Task.Run(() => {
           float _value = Vector3.Distance(@event.Player.Transform.Position, @event.Zombie.Transform.Position);
           if(CalculateSneakybeaky(plugin.SkillConfigInstance, SkillConfig.ESkillEvent.SNEAKYBEAKY_ZOMBIE_MAX_DIST, SkillConfig.ESkillEvent.SNEAKYBEAKY_ZOMBIE_DIST_DIV, ref _value)) {
-            // sneakybeaky
-            plugin.SkillUpdaterInstance.SumSkillExp(@event.Player, _value, (byte)EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SNEAKYBEAKY);
+           plugin.SkillUpdaterInstance.GetModifier_WrapperFunction(
+              plugin.UnturnedUserProviderInstance.GetUser(@event.Player.Player),
+              (ISkillModifier editor) => {
+                // sneakybeaky
+                editor.ExpFractionIncrement(EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SNEAKYBEAKY, _value);
+              }
+            );
           }
         });
     }
@@ -48,8 +53,12 @@ namespace Nekos.SpecialtyPlugin.Watcher {
       if(plugin != null) {
         float _value = Vector3.Distance(@event.Player.Transform.Position, @event.Animal.Transform.Position);
         if(CalculateSneakybeaky(plugin.SkillConfigInstance, SkillConfig.ESkillEvent.SNEAKYBEAKY_ANIMAL_MAX_DIST, SkillConfig.ESkillEvent.SNEAKYBEAKY_ANIMAL_DIST_DIV, ref _value)) {
-          // sneakybeaky
-          plugin.SkillUpdaterInstance.SumSkillExp(@event.Player, _value, (byte)EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SNEAKYBEAKY);
+          plugin.SkillUpdaterInstance.GetModifier_WrapperFunction(
+            plugin.UnturnedUserProviderInstance.GetUser(@event.Player.Player),
+            (ISkillModifier editor) => {
+              editor.ExpFractionIncrement(EPlayerSpeciality.DEFENSE, (byte)EPlayerDefense.SNEAKYBEAKY, _value);
+            }
+           );
         }
       }
     }

@@ -1,0 +1,35 @@
+---- New Features ----
+- Autosave feature
+// excess exp and random boost
+
+--- New Commands for Players ---
+
+--- New Commands for Admins ---
+
+---- Updates ----
+- All command code rewrite, commands can now add or omit usernames or IDs.
+- Command with prefix Player- no longer available.
+///- Commands that edit player's skills, will be prompted if only supplied with only specialty (offense, defense, support), as it will edit the entirety of specialty's skills.
+- Command that edits all skill in a specialty (offense, etc.) will be asked if want to continue. Some commands will use this as well.
+- Major file handling code rewrite.
+- Some events handling code rewrite.
+- Parts of skill mechanic rewrite.
+- Player will know if their skill has been edited or not
+- Searching (in commands) specialty or skill name will use confidence search (will benefit players if they need a short name of it), similar algorithm used in OpenMod's username searching.
+- Better reload spamming prevention.
+	Spamming prevention method can be;
+	- The spamming can be ignored
+	- Spamming can be limited. (How many ammo loaded to a gun per n-minutes)
+	- Same as no. 2, but the closer to the limit, the less exp they got until the cooldown resets (per n-minutes).
+	- The cooldown doesn't have to be resetted, cooldown can adapt (maximum spamming can be extended, if wait long enough).
+			For example: Maximum Rounds per 5 minutes, 200. If reloading for 50 rounds, then the player can spam it for 150 more. Then, if the player wait for a minute, then the player can spam it for 190 more.
+- All online players will be notified when the plugin breaks at the startup, or the config has trouble loading.
+- If reading config gives not fatal errors, it will only sent to server logs, not disabling usability (the plugin will still function after error).
+- Plugin will tell player if they leveled up.
+
+---- Bugs ----
+- When reloading plugin or user connecting or respawning, if their hunger and thirst are in certain threshold, it will not start a timer to take account.
+- More refined config checking.
+- OnDied level reducing for type 'mult' reduce twice by multiply it again.
+- OnDied level reducing for type 'base' only reduce 1 level, not based on the config.
+- When died, skill level still reduced by the game, not by the plugin.
